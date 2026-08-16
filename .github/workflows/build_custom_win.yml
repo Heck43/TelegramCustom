@@ -1,0 +1,62 @@
+name: Build Custom Telegram Windows (x64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+      - custom-*
+
+jobs:
+  build:
+    name: Build Telegram.exe (x64)
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Prepare Directories
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup MSVC & Dependencies
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Prepare Third-Party Libraries
+        run: |
+          python Telegram/build/prepare/prepare.py -p win64 -l Libraries
+
+      - name: Configure CMake
+        run: |
+          cmake -B out -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DTDESKTOP_API_ID=17349 -DTDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb
+
+      - name: Build Telegram
+        run: |
+          cmake --build out --config Release --target Telegram --parallel
+
+      - name: Upload Telegram.exe Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TelegramCustom-Windows-x64
+          path: |
+            out/Release/Telegram.exe
+            out/bin/Telegram.exe
+          if-no-files-found: warn
