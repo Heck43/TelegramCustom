@@ -35,18 +35,18 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Setup MSVC & Dependencies
+      - name: Setup MSVC (x64)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Prepare Third-Party Libraries
         run: |
-          python Telegram/build/prepare/prepare.py -p win64 -l Libraries
+          python Telegram/build/prepare/prepare.py
 
       - name: Configure CMake
         run: |
-          cmake -B out -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DTDESKTOP_API_ID=17349 -DTDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb
+          python Telegram/configure.py x64 -D TDESKTOP_API_ID=17349 -D TDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb
 
       - name: Build Telegram
         run: |
