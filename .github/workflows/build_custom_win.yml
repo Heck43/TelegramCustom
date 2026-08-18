@@ -10,7 +10,6 @@ on:
 env:
   UPLOAD_ARTIFACT: "true"
   ONLY_CACHE: "false"
-  PREPARE_PATH: "Telegram/build/prepare/prepare.py"
 
 defaults:
   run:
@@ -29,36 +28,29 @@ jobs:
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
-      - name: Get repository name
-        shell: bash
-        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
-
-      - name: Clone Repository
+      - name: Checkout Custom Codebase
         uses: actions/checkout@v4
         with:
-          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+          path: custom_src
 
-      - name: Fetch Submodules
+      - name: Clone Official TDesktop with Submodules
+        run: |
+          git clone --depth 1 --branch v7.0.9 --recurse-submodules https://github.com/telegramdesktop/tdesktop.git %TBUILD%\TelegramCustom
+
+      - name: Apply Custom Modifications
         shell: pwsh
         run: |
-          $repoPath = Join-Path $env:TBUILD $env:REPO_NAME
-          Set-Location $repoPath
+          $src = "$env:GITHUB_WORKSPACE\custom_src"
+          $dst = "$env:TBUILD\TelegramCustom"
           
-          $modules = Get-Content .gitmodules
-          $currentPath = ""
-          foreach ($line in $modules) {
-              if ($line -match "path\s*=\s*(.*)") {
-                  $currentPath = $matches[1].Trim()
-              } elseif ($line -match "url\s*=\s*(.*)") {
-                  $url = $matches[1].Trim()
-                  if ($currentPath -and -not (Test-Path "$currentPath\CMakeLists.txt" -PathType Leaf) -and -not (Test-Path "$currentPath\run_cmake.py" -PathType Leaf)) {
-                      Write-Host "Cloning submodule $currentPath from $url..."
-                      Remove-Item -Recurse -Force $currentPath -ErrorAction SilentlyContinue
-                      git clone --depth 1 $url $currentPath
-                  }
-                  $currentPath = ""
-              }
-          }
+          Copy-Item -Recurse -Force "$src\Telegram\SourceFiles\custom_features" "$dst\Telegram\SourceFiles\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.h" "$dst\Telegram\SourceFiles\settings\sections\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_custom.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_main.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\chat_helpers\stickers_list_widget.cpp" "$dst\Telegram\SourceFiles\chat_helpers\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\core\click_handler_types.cpp" "$dst\Telegram\SourceFiles\core\"
+          
+          Write-Host "[✓] Custom modifications applied successfully!"
 
       - name: Setup MSVC
         uses: Eden-CI/msvc-dev-cmd@master
@@ -73,11 +65,11 @@ jobs:
 
       - name: Prepare Third-Party Libraries
         run: |
-          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent
+          %TBUILD%\TelegramCustom\Telegram\build\prepare\win.bat skip-release silent
 
       - name: Build Telegram Desktop
         run: |
-          cd %TBUILD%\%REPO_NAME%\Telegram
+          cd %TBUILD%\TelegramCustom\Telegram
 
           call configure.bat ^
           x64 ^
@@ -91,7 +83,7 @@ jobs:
 
       - name: Prepare Artifact
         run: |
-          set OUT=%TBUILD%\%REPO_NAME%\out\Debug
+          set OUT=%TBUILD%\TelegramCustom\out\Debug
           mkdir %GITHUB_WORKSPACE%\artifact
           copy "%OUT%\Telegram.exe" "%GITHUB_WORKSPACE%\artifact\"
           copy "%OUT%\Updater.exe" "%GITHUB_WORKSPACE%\artifact\" || exit 0
