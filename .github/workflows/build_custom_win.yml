@@ -36,8 +36,29 @@ jobs:
       - name: Clone Repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+
+      - name: Fetch Submodules
+        shell: pwsh
+        run: |
+          $repoPath = Join-Path $env:TBUILD $env:REPO_NAME
+          Set-Location $repoPath
+          
+          $modules = Get-Content .gitmodules
+          $currentPath = ""
+          foreach ($line in $modules) {
+              if ($line -match "path\s*=\s*(.*)") {
+                  $currentPath = $matches[1].Trim()
+              } elseif ($line -match "url\s*=\s*(.*)") {
+                  $url = $matches[1].Trim()
+                  if ($currentPath -and -not (Test-Path "$currentPath\CMakeLists.txt" -PathType Leaf) -and -not (Test-Path "$currentPath\run_cmake.py" -PathType Leaf)) {
+                      Write-Host "Cloning submodule $currentPath from $url..."
+                      Remove-Item -Recurse -Force $currentPath -ErrorAction SilentlyContinue
+                      git clone --depth 1 $url $currentPath
+                  }
+                  $currentPath = ""
+              }
+          }
 
       - name: Setup MSVC
         uses: Eden-CI/msvc-dev-cmd@master
