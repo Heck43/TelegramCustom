@@ -6,57 +6,77 @@ on:
     branches:
       - main
       - master
-      - custom-*
+
+env:
+  UPLOAD_ARTIFACT: "true"
+  ONLY_CACHE: "false"
+  PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+
+defaults:
+  run:
+    shell: cmd
 
 jobs:
-  build:
-    name: Build Telegram.exe (x64)
+  windows:
+    name: Build Telegram (Windows x64)
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: cmd
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Prepare Directories
+      - name: Prepare directories
         run: |
           mkdir %userprofile%\TBuild\Libraries
           mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Get repository name
+        shell: bash
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-      - name: Setup MSVC (x64)
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Clone Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+
+      - name: Setup MSVC
+        uses: Eden-CI/msvc-dev-cmd@master
         with:
           arch: x64
+          toolset: '14.44'
+
+      - name: NuGet sources
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
       - name: Prepare Third-Party Libraries
         run: |
-          python Telegram/build/prepare/prepare.py
+          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent
 
-      - name: Configure CMake
+      - name: Build Telegram Desktop
         run: |
-          python Telegram/configure.py x64 -D TDESKTOP_API_ID=17349 -D TDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb
+          cd %TBUILD%\%REPO_NAME%\Telegram
 
-      - name: Build Telegram
+          call configure.bat ^
+          x64 ^
+          -D TDESKTOP_API_ID=17349 ^
+          -D TDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb ^
+          -D CMAKE_CONFIGURATION_TYPES=Debug ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF ^
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF
+
+          cmake --build ..\out --config Debug --parallel
+
+      - name: Prepare Artifact
         run: |
-          cmake --build out --config Release --target Telegram --parallel
+          set OUT=%TBUILD%\%REPO_NAME%\out\Debug
+          mkdir %GITHUB_WORKSPACE%\artifact
+          copy "%OUT%\Telegram.exe" "%GITHUB_WORKSPACE%\artifact\"
+          copy "%OUT%\Updater.exe" "%GITHUB_WORKSPACE%\artifact\" || exit 0
 
-      - name: Upload Telegram.exe Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TelegramCustom-Windows-x64
-          path: |
-            out/Release/Telegram.exe
-            out/bin/Telegram.exe
-          if-no-files-found: warn
+          path: artifact\
