@@ -438,7 +438,7 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	builder.addSectionButton({
 		.title = rpl::single(u"Кастомные функции"_q),
 		.targetSection = CustomSettingsId(),
-		.icon = { &st::menuIconFeature },
+		.icon = { &st::menuIconCustomize },
 		.keywords = { u"custom"_q, u"mods"_q, u"speed"_q, u"stickers"_q, u"urls"_q },
 	});
 
