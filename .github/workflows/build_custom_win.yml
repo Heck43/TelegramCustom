@@ -54,6 +54,7 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\settings\sections\settings_main.cpp" "$dst\Telegram\SourceFiles\settings\sections\"
           Copy-Item -Force "$src\Telegram\SourceFiles\chat_helpers\stickers_list_widget.cpp" "$dst\Telegram\SourceFiles\chat_helpers\"
           Copy-Item -Force "$src\Telegram\SourceFiles\core\click_handler_types.cpp" "$dst\Telegram\SourceFiles\core\"
+          Copy-Item -Force "$src\Telegram\build\prepare\prepare.py" "$dst\Telegram\build\prepare\"
           
           Write-Host "[✓] Custom modifications applied successfully!"
 
