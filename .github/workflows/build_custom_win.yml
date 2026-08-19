@@ -28,6 +28,11 @@ jobs:
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
+      - name: Patch CMake MSVC Debug Flags
+        shell: bash
+        run: |
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake || true
+
       - name: Checkout Custom Codebase
         uses: actions/checkout@v4
         with:
@@ -76,6 +81,9 @@ jobs:
           -D TDESKTOP_API_ID=17349 ^
           -D TDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb ^
           -D CMAKE_CONFIGURATION_TYPES=Debug ^
+          -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= ^
+          -D CMAKE_CXX_FLAGS="/FS" ^
+          -D CMAKE_C_FLAGS="/FS" ^
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF
 
