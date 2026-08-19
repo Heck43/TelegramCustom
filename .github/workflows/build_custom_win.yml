@@ -21,6 +21,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Maximize Runner Disk Space
+        shell: pwsh
+        run: |
+          Write-Host "Free disk space before cleanup:"
+          Get-PSDrive C, D -ErrorAction SilentlyContinue | Select-Object Name, @{Name="FreeGB";Expression={[math]::Round($_.Free/1GB, 2)}}
+          
+          # Remove heavy preinstalled runtimes and SDKs not used for C++ MSVC builds
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Ruby" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\go" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\SeleniumWebDrivers" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\Android" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\MongoDB" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files\MySQL" -ErrorAction SilentlyContinue
+          
+          Write-Host "Free disk space after cleanup:"
+          Get-PSDrive C, D -ErrorAction SilentlyContinue | Select-Object Name, @{Name="FreeGB";Expression={[math]::Round($_.Free/1GB, 2)}}
+
       - name: Prepare directories
         run: |
           mkdir %userprofile%\TBuild\Libraries
@@ -56,7 +74,9 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\core\click_handler_types.cpp" "$dst\Telegram\SourceFiles\core\"
           Copy-Item -Force "$src\Telegram\build\prepare\prepare.py" "$dst\Telegram\build\prepare\"
           
-          Write-Host "[✓] Custom modifications applied successfully!"
+          # Delete custom_src to save disk space
+          Remove-Item -Recurse -Force $src -ErrorAction SilentlyContinue
+          Write-Host "[✓] Custom modifications applied and temp files cleaned!"
 
       - name: Setup MSVC
         uses: Eden-CI/msvc-dev-cmd@master
@@ -72,6 +92,12 @@ jobs:
       - name: Prepare Third-Party Libraries
         run: |
           %TBUILD%\TelegramCustom\Telegram\build\prepare\win.bat skip-release silent
+
+      - name: Free Library Build Artifacts Space
+        shell: bash
+        run: |
+          echo "Cleaning intermediate build files from Libraries..."
+          find "$LibrariesPath" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete || true
 
       - name: Build Telegram Desktop
         run: |
