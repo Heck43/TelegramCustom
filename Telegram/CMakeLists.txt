@@ -1798,6 +1798,8 @@ PRIVATE
     settings/sections/settings_local_passcode.h
     settings/sections/settings_local_storage.cpp
     settings/sections/settings_local_storage.h
+    settings/sections/settings_custom.cpp
+    settings/sections/settings_custom.h
     settings/sections/settings_main.cpp
     settings/sections/settings_main.h
     settings/settings_recent_searches.cpp
