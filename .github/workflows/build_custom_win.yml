@@ -56,6 +56,17 @@ jobs:
         with:
           path: custom_src
 
+      - name: Restore Libraries Cache
+        id: cache-libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/Users/runneradmin/TBuild/Libraries/win64
+            C:/Users/runneradmin/TBuild/ThirdParty
+          key: libraries-v709-${{ hashFiles('custom_src/Telegram/build/prepare/**') }}
+          restore-keys: |
+            libraries-v709-
+
       - name: Clone Official TDesktop with Submodules
         run: |
           git clone --depth 1 --branch v7.0.9 --recurse-submodules https://github.com/telegramdesktop/tdesktop.git %TBUILD%\TelegramCustom
@@ -91,10 +102,12 @@ jobs:
           nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
       - name: Prepare Third-Party Libraries
+        if: steps.cache-libraries.outputs.cache-hit != 'true'
         run: |
           %TBUILD%\TelegramCustom\Telegram\build\prepare\win.bat skip-release silent
 
       - name: Free Library Build Artifacts Space
+        if: steps.cache-libraries.outputs.cache-hit != 'true'
         shell: bash
         run: |
           echo "Cleaning intermediate build files from Libraries..."
