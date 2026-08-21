@@ -32,7 +32,6 @@ struct ClientConfig {
 
     // 5. Интерфейс (UI)
     bool enableMicaBackdrop = true;        // Эффект стекла Windows 11 (Mica / Acrylic)
-    bool compactFolderSidebar = true;      // Компактный вертикальный сайдбар папок
     bool hideStoriesBar = false;           // Скрыть плашку историй
     bool hideSponsoredAds = true;          // Скрыть спонсорские посты
     bool hidePremiumPromos = true;         // Скрыть промо Premium

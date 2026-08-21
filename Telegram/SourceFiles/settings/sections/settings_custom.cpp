@@ -154,18 +154,6 @@ const auto kMeta = BuildHelper({
 	builder.addSubsectionTitle(rpl::single(u"Интерфейс"_q));
 
 	if (const auto check = builder.addCheckbox({
-		.id = u"custom/compact_folders"_q,
-		.title = rpl::single(u"Компактная колонка папок (стиль Discord/Web)"_q),
-		.checked = CustomFeatures::GetConfig().compactFolderSidebar,
-		.keywords = { u"compact"_q, u"folders"_q, u"sidebar"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().compactFolderSidebar = checked;
-		}, check->lifetime());
-	}
-
-	if (const auto check = builder.addCheckbox({
 		.id = u"custom/mica_glass"_q,
 		.title = rpl::single(u"Стеклянный эффект Windows 11 (Mica / Acrylic Glass)"_q),
 		.checked = CustomFeatures::GetConfig().enableMicaBackdrop,
