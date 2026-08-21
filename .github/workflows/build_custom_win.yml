@@ -84,6 +84,8 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\chat_helpers\stickers_list_widget.cpp" "$dst\Telegram\SourceFiles\chat_helpers\"
           Copy-Item -Force "$src\Telegram\SourceFiles\core\click_handler_types.cpp" "$dst\Telegram\SourceFiles\core\"
           Copy-Item -Force "$src\Telegram\SourceFiles\data\stickers\data_stickers.cpp" "$dst\Telegram\SourceFiles\data\stickers\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\data\data_document.cpp" "$dst\Telegram\SourceFiles\data\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\platform\win\main_window_win.cpp" "$dst\Telegram\SourceFiles\platform\win\"
           Copy-Item -Force "$src\Telegram\build\prepare\prepare.py" "$dst\Telegram\build\prepare\"
           Copy-Item -Force "$src\Telegram\CMakeLists.txt" "$dst\Telegram\"
           

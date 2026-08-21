@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwindow.h"
 #include "core/application.h"
 #include "lottie/lottie_animation.h"
+#include "custom_features/downloads_router.hpp"
 #include "boxes/abstract_box.h" // Ui::hideLayer().
 
 #include <QtCore/QBuffer>
@@ -155,15 +156,15 @@ QString FileNameUnsafe(
 
 	auto path = [&] {
 		const auto path = Core::App().settings().downloadPath();
-		if (path.isEmpty()) {
-			return File::DefaultDownloadPath(session);
-		} else if (path == FileDialog::Tmp()) {
-			return session->local().tempDirectory();
-		} else {
-			return path;
-		}
+		const auto base = path.isEmpty()
+			? File::DefaultDownloadPath(session)
+			: (path == FileDialog::Tmp() ? session->local().tempDirectory() : path);
+		return CustomFeatures::DownloadsRouter::GetSuggestedDownloadPath(name, base);
 	}();
 	if (path.isEmpty()) return QString();
+	if (!path.endsWith('/') && !path.endsWith('\\')) {
+		path += '/';
+	}
 	if (name.isEmpty()) name = u".unknown"_q;
 	if (name.at(0) == QChar::fromLatin1('.')) {
 		if (!QDir().exists(path)) QDir().mkpath(path);

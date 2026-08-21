@@ -132,6 +132,11 @@ public:
     void cleanup() {
         if (_hwnd) {
             UnregisterHotKey(_hwnd, 0x5447);
+            _hwnd = nullptr;
+        }
+        if (_overlayWidget) {
+            delete _overlayWidget;
+            _overlayWidget = nullptr;
         }
     }
 

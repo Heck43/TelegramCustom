@@ -28,6 +28,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/themes/window_theme.h"
 #include "window/window_controller.h"
 #include "history/history.h"
+#include "custom_features/custom_settings.hpp"
+#include "custom_features/in_game_overlay.hpp"
 
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QApplication>
@@ -234,6 +236,18 @@ bool EventFilter::mainWindowEvent(
 		const auto radius = size.maximized ? 0 : style::ConvertScale(8);
 		return _window->setDwmPreview(size.value, radius);
 	}
+
+	case WM_WTSSESSION_CHANGE: {
+		if (wParam == WTS_SESSION_LOCK) {
+			if (CustomFeatures::GetConfig().autoLockOnWindowsLock) {
+				Core::App().lockByPasscode();
+			}
+		}
+	} return false;
+
+	case WM_HOTKEY: {
+		CustomFeatures::InGameOverlayManager::Instance().handleHotKey(wParam);
+	} return false;
 
 	}
 	return false;
@@ -442,6 +456,7 @@ void MainWindow::shadowsDeactivate() {
 }
 
 void MainWindow::destroyedFromSystem() {
+	CustomFeatures::InGameOverlayManager::Instance().cleanup();
 	if (!Core::App().closeNonLastAsync(&controller())) {
 		Core::Quit();
 	}
@@ -668,6 +683,7 @@ void MainWindow::initHook() {
 	}
 
 	WTSRegisterSessionNotification(_hWnd, NOTIFY_FOR_THIS_SESSION);
+	CustomFeatures::InGameOverlayManager::Instance().init(_hWnd);
 
 	using namespace base::Platform;
 	auto factory = ComPtr<IUIViewSettingsInterop>();
