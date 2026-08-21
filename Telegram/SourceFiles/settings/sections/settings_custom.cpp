@@ -57,6 +57,7 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().cleanTrackingUrls = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
@@ -69,6 +70,7 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().directExternalLinks = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
@@ -81,6 +83,7 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().enableDownloadsRouter = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
@@ -96,6 +99,7 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().unlimitedRecentStickers = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
@@ -111,6 +115,7 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().enableInGameOverlay = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
@@ -123,33 +128,36 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().enableGameStatus = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/auto_lock"_q,
-		.title = rpl::single(u"Блокировка по Win + L"_q),
+		.title = rpl::single(u"Блокировка по Win + L (требуется код-пароль)"_q),
 		.checked = CustomFeatures::GetConfig().autoLockOnWindowsLock,
 		.keywords = { u"lock"_q, u"security"_q, u"win+l"_q, u"passcode"_q },
 	})) {
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().autoLockOnWindowsLock = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
 	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Интерфейс"_q));
+	builder.addSubsectionTitle(rpl::single(u"Интерфейс и стиль"_q));
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/mica_glass"_q,
-		.title = rpl::single(u"Стеклянный стиль Windows 11"_q),
+		.title = rpl::single(u"Стеклянный эффект Windows 10/11 (Acrylic / Mica)"_q),
 		.checked = CustomFeatures::GetConfig().enableMicaBackdrop,
 		.keywords = { u"mica"_q, u"glass"_q, u"acrylic"_q, u"blur"_q },
 	})) {
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().enableMicaBackdrop = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
@@ -162,6 +170,7 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().hideStoriesBar = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
@@ -174,6 +183,7 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().hideSponsoredAds = checked;
+			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 });
