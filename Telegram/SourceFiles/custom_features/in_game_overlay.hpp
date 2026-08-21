@@ -112,19 +112,30 @@ public:
     }
 
     void init(HWND mainWindowHwnd) {
-        if (!GetConfig().enableInGameOverlay) return;
         _hwnd = mainWindowHwnd;
+        updateState();
+    }
 
-        // Регистрация глобальной комбинации клавиш Shift + ~ (VK_OEM_3 = ~ / ё)
-        RegisterHotKey(_hwnd, 0x5447, MOD_SHIFT, VK_OEM_3);
-
-        if (!_overlayWidget) {
-            _overlayWidget = new InGameOverlayWidget();
+    void updateState() {
+        if (!_hwnd) return;
+        if (GetConfig().enableInGameOverlay) {
+            RegisterHotKey(_hwnd, 0x5447, MOD_SHIFT, VK_OEM_3);
+            if (!_overlayWidget) {
+                _overlayWidget = new InGameOverlayWidget();
+            }
+        } else {
+            UnregisterHotKey(_hwnd, 0x5447);
+            if (_overlayWidget) {
+                _overlayWidget->hide();
+            }
         }
     }
 
     void handleHotKey(WPARAM wParam) {
-        if (wParam == 0x5447 && _overlayWidget) {
+        if (wParam == 0x5447 && GetConfig().enableInGameOverlay) {
+            if (!_overlayWidget) {
+                _overlayWidget = new InGameOverlayWidget();
+            }
             _overlayWidget->toggleVisibility();
         }
     }

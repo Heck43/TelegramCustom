@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/sections/settings_custom.h"
 
 #include "custom_features/custom_settings.hpp"
+#include "custom_features/in_game_overlay.hpp"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
 #include "settings/settings_common_session.h"
@@ -116,6 +117,7 @@ const auto kMeta = BuildHelper({
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().enableInGameOverlay = checked;
 			CustomFeatures::GetConfig().save();
+			CustomFeatures::InGameOverlayManager::Instance().updateState();
 		}, check->lifetime());
 	}
 
