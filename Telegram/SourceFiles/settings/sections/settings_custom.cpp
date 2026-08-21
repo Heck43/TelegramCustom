@@ -72,21 +72,6 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Стикеры и медиа"_q));
-
-	if (const auto check = builder.addCheckbox({
-		.id = u"custom/unlimited_stickers"_q,
-		.title = rpl::single(u"Бесконечные недавние стикеры (без ограничения)"_q),
-		.checked = CustomFeatures::GetConfig().unlimitedRecentStickers,
-		.keywords = { u"stickers"_q, u"recent"_q, u"unlimited"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().unlimitedRecentStickers = checked;
-		}, check->lifetime());
-	}
-
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/speedboost"_q,
 		.title = rpl::single(u"Многопоточный SpeedBoost для скачивания файлов"_q),
@@ -96,6 +81,72 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().speedBoostEnabled = checked;
+		}, check->lifetime());
+	}
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/downloads_router"_q,
+		.title = rpl::single(u"Умная сортировка файлов по системным папкам (Фото, Музыка, Документы)"_q),
+		.checked = CustomFeatures::GetConfig().enableDownloadsRouter,
+		.keywords = { u"downloads"_q, u"router"_q, u"folders"_q, u"music"_q, u"pictures"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enableDownloadsRouter = checked;
+		}, check->lifetime());
+	}
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Стикеры и медиа"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/unlimited_stickers"_q,
+		.title = rpl::single(u"Расширенный список недавних стикеров (до 1000 шт.)"_q),
+		.checked = CustomFeatures::GetConfig().unlimitedRecentStickers,
+		.keywords = { u"stickers"_q, u"recent"_q, u"unlimited"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().unlimitedRecentStickers = checked;
+		}, check->lifetime());
+	}
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Гейминг и Windows"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/game_overlay"_q,
+		.title = rpl::single(u"Внутриигровой оверлей поверх игр (Shift + ~)"_q),
+		.checked = CustomFeatures::GetConfig().enableInGameOverlay,
+		.keywords = { u"overlay"_q, u"game"_q, u"shift"_q, u"tilda"_q, u"steam"_q, u"discord"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enableInGameOverlay = checked;
+		}, check->lifetime());
+	}
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/game_status"_q,
+		.title = rpl::single(u"Авто-статус игры в профиле (CS2, Dota 2, Cyberpunk и др.)"_q),
+		.checked = CustomFeatures::GetConfig().enableGameStatus,
+		.keywords = { u"game"_q, u"status"_q, u"activity"_q, u"cs2"_q, u"dota"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enableGameStatus = checked;
+		}, check->lifetime());
+	}
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/auto_lock"_q,
+		.title = rpl::single(u"Авто-блокировка Telegram при блокировке экрана (Win + L)"_q),
+		.checked = CustomFeatures::GetConfig().autoLockOnWindowsLock,
+		.keywords = { u"lock"_q, u"security"_q, u"win+l"_q, u"passcode"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().autoLockOnWindowsLock = checked;
 		}, check->lifetime());
 	}
 
@@ -111,6 +162,18 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().compactFolderSidebar = checked;
+		}, check->lifetime());
+	}
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/mica_glass"_q,
+		.title = rpl::single(u"Стеклянный эффект Windows 11 (Mica / Acrylic Glass)"_q),
+		.checked = CustomFeatures::GetConfig().enableMicaBackdrop,
+		.keywords = { u"mica"_q, u"glass"_q, u"acrylic"_q, u"blur"_q, u"windows 11"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enableMicaBackdrop = checked;
 		}, check->lifetime());
 	}
 

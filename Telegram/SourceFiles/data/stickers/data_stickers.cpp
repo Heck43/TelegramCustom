@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwindow.h"
 #include "base/unixtime.h"
 #include "boxes/abstract_box.h" // Ui::show().
+#include "custom_features/custom_settings.hpp"
 #include "styles/style_chat_helpers.h"
 
 namespace Data {
@@ -281,9 +282,11 @@ void Stickers::incrementSticker(not_null<DocumentData*> document) {
 			break;
 		}
 	}
+	const auto recentLimit = CustomFeatures::GetConfig().unlimitedRecentStickers
+		? std::max(1000, session().serverConfig().stickersRecentLimit)
+		: session().serverConfig().stickersRecentLimit;
 	while (!recent.isEmpty()
-		&& (set->stickers.size() + recent.size()
-			> session().serverConfig().stickersRecentLimit)) {
+		&& (set->stickers.size() + recent.size() > recentLimit)) {
 		writeOldRecent = true;
 		recent.pop_back();
 	}
