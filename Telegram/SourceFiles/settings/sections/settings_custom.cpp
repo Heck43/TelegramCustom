@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "custom_features/custom_settings.hpp"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
+#include "settings/settings_common_session.h"
 #include "settings/sections/settings_main.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
@@ -46,81 +47,95 @@ const auto kMeta = BuildHelper({
 }, [](SectionBuilder &builder) {
 	builder.addSubsectionTitle(rpl::single(u"Ссылки и сеть"_q));
 
-	builder.addCheckbox({
+	if (const auto check = builder.addCheckbox({
 		.id = u"custom/clean_urls"_q,
 		.title = rpl::single(u"Авто-очистка трекеров и UTM-меток из ссылок"_q),
 		.checked = CustomFeatures::GetConfig().cleanTrackingUrls,
 		.keywords = { u"clean"_q, u"url"_q, u"utm"_q, u"tracking"_q },
-	})->checkedChanges(
-	) | rpl::start_with_next([=](bool checked) {
-		CustomFeatures::GetConfig().cleanTrackingUrls = checked;
-	}, builder.container()->lifetime());
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().cleanTrackingUrls = checked;
+		}, check->lifetime());
+	}
 
-	builder.addCheckbox({
+	if (const auto check = builder.addCheckbox({
 		.id = u"custom/direct_links"_q,
 		.title = rpl::single(u"Прямой переход по ссылкам без окон подтверждения"_q),
 		.checked = CustomFeatures::GetConfig().directExternalLinks,
 		.keywords = { u"links"_q, u"external"_q, u"direct"_q },
-	})->checkedChanges(
-	) | rpl::start_with_next([=](bool checked) {
-		CustomFeatures::GetConfig().directExternalLinks = checked;
-	}, builder.container()->lifetime());
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().directExternalLinks = checked;
+		}, check->lifetime());
+	}
 
 	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Стикеры и медиа"_q));
 
-	builder.addCheckbox({
+	if (const auto check = builder.addCheckbox({
 		.id = u"custom/unlimited_stickers"_q,
 		.title = rpl::single(u"Бесконечные недавние стикеры (без ограничения)"_q),
 		.checked = CustomFeatures::GetConfig().unlimitedRecentStickers,
 		.keywords = { u"stickers"_q, u"recent"_q, u"unlimited"_q },
-	})->checkedChanges(
-	) | rpl::start_with_next([=](bool checked) {
-		CustomFeatures::GetConfig().unlimitedRecentStickers = checked;
-	}, builder.container()->lifetime());
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().unlimitedRecentStickers = checked;
+		}, check->lifetime());
+	}
 
-	builder.addCheckbox({
+	if (const auto check = builder.addCheckbox({
 		.id = u"custom/speedboost"_q,
 		.title = rpl::single(u"Многопоточный SpeedBoost для скачивания файлов"_q),
 		.checked = CustomFeatures::GetConfig().speedBoostEnabled,
 		.keywords = { u"speed"_q, u"download"_q, u"boost"_q, u"threads"_q },
-	})->checkedChanges(
-	) | rpl::start_with_next([=](bool checked) {
-		CustomFeatures::GetConfig().speedBoostEnabled = checked;
-	}, builder.container()->lifetime());
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().speedBoostEnabled = checked;
+		}, check->lifetime());
+	}
 
 	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Интерфейс"_q));
 
-	builder.addCheckbox({
+	if (const auto check = builder.addCheckbox({
 		.id = u"custom/compact_folders"_q,
 		.title = rpl::single(u"Компактная колонка папок (стиль Discord/Web)"_q),
 		.checked = CustomFeatures::GetConfig().compactFolderSidebar,
 		.keywords = { u"compact"_q, u"folders"_q, u"sidebar"_q },
-	})->checkedChanges(
-	) | rpl::start_with_next([=](bool checked) {
-		CustomFeatures::GetConfig().compactFolderSidebar = checked;
-	}, builder.container()->lifetime());
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().compactFolderSidebar = checked;
+		}, check->lifetime());
+	}
 
-	builder.addCheckbox({
+	if (const auto check = builder.addCheckbox({
 		.id = u"custom/hide_stories"_q,
 		.title = rpl::single(u"Скрыть панель историй (Stories)"_q),
 		.checked = CustomFeatures::GetConfig().hideStoriesBar,
 		.keywords = { u"stories"_q, u"hide"_q },
-	})->checkedChanges(
-	) | rpl::start_with_next([=](bool checked) {
-		CustomFeatures::GetConfig().hideStoriesBar = checked;
-	}, builder.container()->lifetime());
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().hideStoriesBar = checked;
+		}, check->lifetime());
+	}
 
-	builder.addCheckbox({
+	if (const auto check = builder.addCheckbox({
 		.id = u"custom/hide_ads"_q,
 		.title = rpl::single(u"Скрыть спонсированные рекламные посты"_q),
 		.checked = CustomFeatures::GetConfig().hideSponsoredAds,
 		.keywords = { u"ads"_q, u"hide"_q, u"sponsored"_q },
-	})->checkedChanges(
-	) | rpl::start_with_next([=](bool checked) {
-		CustomFeatures::GetConfig().hideSponsoredAds = checked;
-	}, builder.container()->lifetime());
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().hideSponsoredAds = checked;
+		}, check->lifetime());
+	}
 });
 
 const SectionBuildMethod kCustomSection = kMeta.build;
