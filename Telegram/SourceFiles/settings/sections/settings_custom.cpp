@@ -5,6 +5,7 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "lang/lang_keys.h"
 #include "settings/sections/settings_custom.h"
 
 #include "custom_features/custom_settings.hpp"
@@ -42,7 +43,7 @@ private:
 const auto kMeta = BuildHelper({
 	.id = CustomSection::Id(),
 	.parentId = MainId(),
-	.title = &tr::lng_settings_section_general,
+	.title = &tr::lng_settings_features,
 	.icon = &st::menuIconCustomize,
 }, [](SectionBuilder &builder) {
 	builder.addSubsectionTitle(rpl::single(u"Ссылки и сеть"_q));
