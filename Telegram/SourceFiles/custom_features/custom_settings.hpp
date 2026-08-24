@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QSettings>
 #include <QCoreApplication>
 #include <QStandardPaths>
@@ -20,14 +21,13 @@ struct ClientConfig {
 
     // 3. Гейминг и система
     bool enableInGameOverlay = true;       // Оверлей в играх (Shift + ~)
-    QString overlayTargetGame = "all";     // "all" или имя процесса, например "javaw.exe", "cs2.exe"
+    bool overlayAllGames = false;          // false = только в выбранных играх, true = во всех
+    QStringList overlayAllowedGames = { "javaw.exe", "cs2.exe", "dota2.exe", "RobloxPlayerBeta.exe", "GTA5.exe" };
     bool enableGameStatus = false;         // Авто-статус игры в профиле
     bool autoLockOnWindowsLock = false;    // Авто-блокировка при Win + L
-    QString customLockPasscode = "";       // Пользовательский PIN-код для блокировки Win + L
 
     // 4. Интерфейс (UI)
-    bool enableMicaBackdrop = true;        // Эффект стекла Windows 10/11 (Acrylic / Mica)
-    bool modernRoundedStyle = true;        // Современный стиль интерфейса (плавные скругления)
+    bool syncWindowsAccentColor = true;    // Цвет акцента из Windows (под обои / Wallpaper Engine)
     bool hideStoriesBar = false;           // Скрыть плашку историй
     bool hideSponsoredAds = true;          // Скрыть спонсорские посты и рекламные плашки вверху
     bool hidePremiumPromos = true;         // Скрыть промо Premium
@@ -42,12 +42,11 @@ struct ClientConfig {
         unlimitedRecentStickers = s.value("unlimitedRecentStickers", unlimitedRecentStickers).toBool();
         recentStickersMaxCount = s.value("recentStickersMaxCount", recentStickersMaxCount).toInt();
         enableInGameOverlay = s.value("enableInGameOverlay", enableInGameOverlay).toBool();
-        overlayTargetGame = s.value("overlayTargetGame", overlayTargetGame).toString();
+        overlayAllGames = s.value("overlayAllGames", overlayAllGames).toBool();
+        overlayAllowedGames = s.value("overlayAllowedGames", overlayAllowedGames).toStringList();
         enableGameStatus = s.value("enableGameStatus", enableGameStatus).toBool();
         autoLockOnWindowsLock = s.value("autoLockOnWindowsLock", autoLockOnWindowsLock).toBool();
-        customLockPasscode = s.value("customLockPasscode", customLockPasscode).toString();
-        enableMicaBackdrop = s.value("enableMicaBackdrop", enableMicaBackdrop).toBool();
-        modernRoundedStyle = s.value("modernRoundedStyle", modernRoundedStyle).toBool();
+        syncWindowsAccentColor = s.value("syncWindowsAccentColor", syncWindowsAccentColor).toBool();
         hideStoriesBar = s.value("hideStoriesBar", hideStoriesBar).toBool();
         hideSponsoredAds = s.value("hideSponsoredAds", hideSponsoredAds).toBool();
         hidePremiumPromos = s.value("hidePremiumPromos", hidePremiumPromos).toBool();
@@ -63,12 +62,11 @@ struct ClientConfig {
         s.setValue("unlimitedRecentStickers", unlimitedRecentStickers);
         s.setValue("recentStickersMaxCount", recentStickersMaxCount);
         s.setValue("enableInGameOverlay", enableInGameOverlay);
-        s.setValue("overlayTargetGame", overlayTargetGame);
+        s.setValue("overlayAllGames", overlayAllGames);
+        s.setValue("overlayAllowedGames", overlayAllowedGames);
         s.setValue("enableGameStatus", enableGameStatus);
         s.setValue("autoLockOnWindowsLock", autoLockOnWindowsLock);
-        s.setValue("customLockPasscode", customLockPasscode);
-        s.setValue("enableMicaBackdrop", enableMicaBackdrop);
-        s.setValue("modernRoundedStyle", modernRoundedStyle);
+        s.setValue("syncWindowsAccentColor", syncWindowsAccentColor);
         s.setValue("hideStoriesBar", hideStoriesBar);
         s.setValue("hideSponsoredAds", hideSponsoredAds);
         s.setValue("hidePremiumPromos", hidePremiumPromos);

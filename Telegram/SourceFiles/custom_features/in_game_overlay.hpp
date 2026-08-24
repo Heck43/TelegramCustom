@@ -12,9 +12,84 @@
 #include <QPushButton>
 #include <QPainter>
 #include <QMouseEvent>
+#include <QVector>
+#include <QPair>
+#include <QFileInfo>
 #include "custom_features/custom_settings.hpp"
 
 namespace CustomFeatures {
+
+struct RunningAppInfo {
+    QString exeName;
+    QString windowTitle;
+};
+
+inline QVector<RunningAppInfo> GetRunningUserApps() {
+    QVector<RunningAppInfo> result;
+    
+    struct EnumData {
+        QVector<RunningAppInfo> *list;
+    } data = { &result };
+
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) {
+            return TRUE;
+        }
+
+        // Проверяем наличие заголовка
+        WCHAR title[256] = { 0 };
+        int len = GetWindowTextW(hwnd, title, 256);
+        if (len <= 0) {
+            return TRUE;
+        }
+
+        DWORD pid = 0;
+        GetWindowThreadProcessId(hwnd, &pid);
+        if (!pid) {
+            return TRUE;
+        }
+
+        HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (!hProc) {
+            return TRUE;
+        }
+
+        WCHAR path[MAX_PATH] = { 0 };
+        DWORD size = MAX_PATH;
+        if (QueryFullProcessImageNameW(hProc, 0, path, &size)) {
+            QString exe = QFileInfo(QString::fromWCharArray(path)).fileName();
+            QString winTitle = QString::fromWCharArray(title).trimmed();
+
+            // Отсеиваем системный мусор
+            const QString lowerExe = exe.toLower();
+            static const QStringList kIgnoreList = {
+                "explorer.exe", "svchost.exe", "dwm.exe", "taskhostw.exe",
+                "runtimebroker.exe", "searchhost.exe", "shellexperiencehost.exe",
+                "telegram.exe", "textinputhost.exe", "applicationframehost.exe",
+                "systemsettings.exe", "conhost.exe", "cmd.exe", "powershell.exe",
+                "nvidia share.exe", "devenv.exe"
+            };
+
+            if (!kIgnoreList.contains(lowerExe) && !winTitle.isEmpty()) {
+                auto *list = reinterpret_cast<EnumData*>(lParam)->list;
+                bool alreadyExists = false;
+                for (const auto &item : *list) {
+                    if (item.exeName.compare(exe, Qt::CaseInsensitive) == 0) {
+                        alreadyExists = true;
+                        break;
+                    }
+                }
+                if (!alreadyExists) {
+                    list->push_back({ exe, winTitle });
+                }
+            }
+        }
+        CloseHandle(hProc);
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&data));
+
+    return result;
+}
 
 class InGameOverlayWidget : public QWidget {
 public:
@@ -30,7 +105,6 @@ public:
         if (isVisible()) {
             hide();
         } else {
-            // Центрируем оверлей или позиционируем поверх активного экрана
             show();
             raise();
             activateWindow();
@@ -43,8 +117,8 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        // Полупрозрачный матовый фон (подходит для OpenGL, DirectX, Vulkan)
-        QColor bgColor(18, 22, 30, 235);
+        // Полупрозрачный темный фон для любых игр (OpenGL / DirectX / Vulkan)
+        QColor bgColor(18, 22, 30, 238);
         p.setBrush(bgColor);
         p.setPen(QPen(QColor(255, 255, 255, 35), 1.5));
         p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 16, 16);
@@ -96,7 +170,7 @@ private:
         auto *contentLayout = new QVBoxLayout(contentBox);
         contentLayout->setContentsMargins(14, 14, 14, 14);
 
-        auto *chatInfo = new QLabel("💬 Оверлей активен поверх ваших игр (включая Minecraft, CS2, Dota 2 и др.).\n\nВы можете перетаскивать это окно за шапку и общаться не сворачивая игру.", contentBox);
+        auto *chatInfo = new QLabel("💬 Оверлей активен поверх ваших игр.\n\nВы можете перетаскивать это окно за шапку и общаться не сворачивая игру.", contentBox);
         chatInfo->setStyleSheet("color: #D1D5DB; font-size: 12px; line-height: 1.5;");
         chatInfo->setWordWrap(true);
         contentLayout->addWidget(chatInfo);
@@ -147,8 +221,12 @@ public:
     }
 
     bool isTargetGameActive() const {
-        const auto target = GetConfig().overlayTargetGame.trimmed().toLower();
-        if (target.isEmpty() || target == "all") {
+        if (GetConfig().overlayAllGames) {
+            return true;
+        }
+
+        const auto allowed = GetConfig().overlayAllowedGames;
+        if (allowed.isEmpty()) {
             return true;
         }
 
@@ -166,9 +244,15 @@ public:
         DWORD size = MAX_PATH;
         if (QueryFullProcessImageNameW(hProc, 0, procName, &size)) {
             QString fullPath = QString::fromWCharArray(procName);
-            QString exeName = QFileInfo(fullPath).fileName().toLower();
+            QString exeName = QFileInfo(fullPath).fileName();
             CloseHandle(hProc);
-            return exeName.contains(target);
+
+            for (const auto &item : allowed) {
+                if (exeName.compare(item, Qt::CaseInsensitive) == 0) {
+                    return true;
+                }
+            }
+            return false;
         }
         CloseHandle(hProc);
         return true;

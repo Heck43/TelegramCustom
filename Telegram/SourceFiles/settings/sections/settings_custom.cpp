@@ -22,7 +22,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/labels.h"
+#include "ui/boxes/generic_box.h"
 #include "ui/wrap/vertical_layout.h"
+#include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
@@ -125,6 +127,70 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
+	builder.addButton({
+		.title = rpl::single(u"Выбрать игры для оверлея"_q),
+		.icon = &st::menuIconDevices,
+		.onClick = [=] {
+			builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
+				box->setTitle(rpl::single(u"Игры для оверлея"_q));
+
+				box->addRow(object_ptr<Ui::FlatLabel>(
+					box,
+					rpl::single(u"Оверлей (Shift + ~) открывается поверх игр (Minecraft OpenGL, CS2, Dota 2 и др.):"_q),
+					st::boxLabel));
+
+				const auto allCheck = box->addRow(object_ptr<Ui::Checkbox>(
+					box,
+					u"Работать поверх всех игр и приложений"_q,
+					CustomFeatures::GetConfig().overlayAllGames,
+					st::defaultBoxCheckbox));
+				allCheck->checkedChanges() | rpl::on_next([=](bool checked) {
+					CustomFeatures::GetConfig().overlayAllGames = checked;
+					CustomFeatures::GetConfig().save();
+				}, box->lifetime());
+
+				Ui::AddDivider(box->verticalLayout());
+				Ui::AddSubsectionTitle(box->verticalLayout(), rpl::single(u"Сохраненные игры"_q));
+
+				for (const auto &game : CustomFeatures::GetConfig().overlayAllowedGames) {
+					box->addRow(object_ptr<Ui::FlatLabel>(
+						box,
+						rpl::single(u"🎮 " + game),
+						st::boxLabel));
+				}
+
+				Ui::AddDivider(box->verticalLayout());
+				Ui::AddSubsectionTitle(box->verticalLayout(), rpl::single(u"Добавить из запущенных игр"_q));
+
+				const auto running = CustomFeatures::GetRunningUserApps();
+				if (running.isEmpty()) {
+					box->addRow(object_ptr<Ui::FlatLabel>(
+						box,
+						rpl::single(u"Запущенных пользовательских окон не найдено"_q),
+						st::boxLabel));
+				} else {
+					for (const auto &app : running) {
+						const bool already = CustomFeatures::GetConfig().overlayAllowedGames.contains(app.exeName, Qt::CaseInsensitive);
+						auto btn = box->addRow(object_ptr<Ui::SettingsButton>(
+							box,
+							rpl::single((already ? u"✓ " : u"+ ") + app.windowTitle + u" (" + app.exeName + u")"),
+							st::settingsButton));
+						btn->setClickedCallback([=] {
+							if (!CustomFeatures::GetConfig().overlayAllowedGames.contains(app.exeName, Qt::CaseInsensitive)) {
+								CustomFeatures::GetConfig().overlayAllowedGames.append(app.exeName);
+								CustomFeatures::GetConfig().save();
+								box->closeBox();
+							}
+						});
+					}
+				}
+
+				box->addButton(tr::lng_close(), [=] { box->closeBox(); });
+			}));
+		},
+		.keywords = { u"game"_q, u"process"_q, u"list"_q, u"overlay"_q },
+	});
+
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/game_status"_q,
 		.title = rpl::single(u"Авто-статус запущенных игр"_q),
@@ -168,27 +234,14 @@ const auto kMeta = BuildHelper({
 	builder.addSubsectionTitle(rpl::single(u"Интерфейс и стиль"_q));
 
 	if (const auto check = builder.addCheckbox({
-		.id = u"custom/mica_glass"_q,
-		.title = rpl::single(u"Стеклянный эффект Windows 10/11 (Acrylic / Mica)"_q),
-		.checked = CustomFeatures::GetConfig().enableMicaBackdrop,
-		.keywords = { u"mica"_q, u"glass"_q, u"acrylic"_q, u"blur"_q },
+		.id = u"custom/windows_accent"_q,
+		.title = rpl::single(u"Цвет акцента из Windows (под обои / Wallpaper Engine)"_q),
+		.checked = CustomFeatures::GetConfig().syncWindowsAccentColor,
+		.keywords = { u"accent"_q, u"color"_q, u"windows"_q, u"wallpaper"_q },
 	})) {
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().enableMicaBackdrop = checked;
-			CustomFeatures::GetConfig().save();
-		}, check->lifetime());
-	}
-
-	if (const auto check = builder.addCheckbox({
-		.id = u"custom/modern_rounded"_q,
-		.title = rpl::single(u"Современные скругленные облачка сообщений"_q),
-		.checked = CustomFeatures::GetConfig().modernRoundedStyle,
-		.keywords = { u"style"_q, u"rounded"_q, u"bubble"_q, u"modern"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().modernRoundedStyle = checked;
+			CustomFeatures::GetConfig().syncWindowsAccentColor = checked;
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}

@@ -18,6 +18,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QGuiApplication>
 #include <QtGui/QPalette>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
+#endif
+#include "custom_features/custom_settings.hpp"
+
 namespace Window {
 namespace Theme {
 namespace {
@@ -180,11 +187,30 @@ style::colorizer ColorizerFrom(
 }
 
 std::optional<QColor> SystemAccentColor() {
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	if (Platform::IsWindows() && Platform::IsWindows8OrGreater()) {
-		return std::nullopt;
+#ifdef Q_OS_WIN
+	// 1. Читаем актуальный акцентный цвет Windows 10/11 из реестра DWM (включая цвет от Wallpaper Engine)
+	DWORD color = 0;
+	DWORD size = sizeof(color);
+	if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", L"AccentColor", RRF_RT_REG_DWORD, nullptr, &color, &size) == ERROR_SUCCESS) {
+		int r = (color & 0x000000FF);
+		int g = (color & 0x0000FF00) >> 8;
+		int b = (color & 0x00FF0000) >> 16;
+		if (r != 0 || g != 0 || b != 0) {
+			return QColor(r, g, b);
+		}
 	}
-#endif // Qt < 6.0.0
+	// 2. Резервный способ через DwmGetColorizationColor
+	DWORD colorization = 0;
+	BOOL opaque = FALSE;
+	if (SUCCEEDED(DwmGetColorizationColor(&colorization, &opaque))) {
+		int r = (colorization >> 16) & 0xFF;
+		int g = (colorization >> 8) & 0xFF;
+		int b = colorization & 0xFF;
+		if (r != 0 || g != 0 || b != 0) {
+			return QColor(r, g, b);
+		}
+	}
+#endif
 	const auto accent = QPalette().color(QPalette::Highlight);
 	return accent.isValid() ? std::make_optional(accent) : std::nullopt;
 }
@@ -202,7 +228,7 @@ style::colorizer ColorizerForTheme(const QString &absolutePath) {
 		return {};
 	}
 	const auto &settings = Core::App().settings();
-	if (settings.systemAccentColorEnabled()) {
+	if (CustomFeatures::GetConfig().syncWindowsAccentColor || settings.systemAccentColorEnabled()) {
 		if (const auto accent = SystemAccentColor()) {
 			return ColorizerFrom(*i, *accent);
 		}

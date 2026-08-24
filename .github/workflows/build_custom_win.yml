@@ -89,6 +89,7 @@ jobs:
           Copy-Item -Force "$src\Telegram\SourceFiles\ui\chat\chat_style_radius.cpp" "$dst\Telegram\SourceFiles\ui\chat\"
           Copy-Item -Force "$src\Telegram\SourceFiles\platform\win\main_window_win.cpp" "$dst\Telegram\SourceFiles\platform\win\"
           Copy-Item -Force "$src\Telegram\SourceFiles\platform\win\windows_dlls.h" "$dst\Telegram\SourceFiles\platform\win\"
+          Copy-Item -Force "$src\Telegram\SourceFiles\window\themes\window_themes_embedded.cpp" "$dst\Telegram\SourceFiles\window\themes\"
           Copy-Item -Force "$src\Telegram\build\prepare\prepare.py" "$dst\Telegram\build\prepare\"
           Copy-Item -Force "$src\Telegram\CMakeLists.txt" "$dst\Telegram\"
           

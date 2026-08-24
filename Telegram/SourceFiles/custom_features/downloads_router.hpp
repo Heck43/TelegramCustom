@@ -71,28 +71,27 @@ public:
     }
 
     static QString GetSuggestedDownloadPath(const QString &fileName, const QString &defaultPath = QString()) {
+        const auto downloadsBase = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/Telegram Desktop";
+
         if (!GetConfig().enableDownloadsRouter) {
-            return defaultPath.isEmpty()
-                ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/Telegram Desktop"
-                : defaultPath;
+            return defaultPath.isEmpty() ? downloadsBase : defaultPath;
         }
 
         const auto category = CategorizeFile(fileName);
-        const auto downloadsBase = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/Telegram Desktop";
         QString targetDir;
 
         switch (category) {
         case FileCategory::Images:
-            targetDir = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation) + "/Telegram Pictures";
+            targetDir = downloadsBase + "/Изображения";
             break;
         case FileCategory::Audio:
-            targetDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation) + "/Telegram Music";
+            targetDir = downloadsBase + "/Музыка";
             break;
         case FileCategory::Video:
-            targetDir = QStandardPaths::writableLocation(QStandardPaths::MoviesLocation) + "/Telegram Video";
+            targetDir = downloadsBase + "/Видео";
             break;
         case FileCategory::Documents:
-            targetDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Telegram Documents";
+            targetDir = downloadsBase + "/Документы";
             break;
         case FileCategory::Archives:
             targetDir = downloadsBase + "/Архивы";
