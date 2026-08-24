@@ -283,7 +283,7 @@ void Stickers::incrementSticker(not_null<DocumentData*> document) {
 		}
 	}
 	const auto recentLimit = CustomFeatures::GetConfig().unlimitedRecentStickers
-		? std::max(1000, session().serverConfig().stickersRecentLimit)
+		? std::max(300, session().serverConfig().stickersRecentLimit)
 		: session().serverConfig().stickersRecentLimit;
 	while (!recent.isEmpty()
 		&& (set->stickers.size() + recent.size() > recentLimit)) {

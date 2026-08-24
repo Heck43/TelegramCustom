@@ -15,19 +15,21 @@ struct ClientConfig {
     bool enableDownloadsRouter = true;     // Умная сортировка файлов по папкам
 
     // 2. Стикеры и медиа
-    bool unlimitedRecentStickers = true;   // Расширенный список стикеров (1000 шт.)
-    int recentStickersMaxCount = 1000;     // Лимит недавних стикеров
+    bool unlimitedRecentStickers = true;   // Расширенный список стикеров (300 шт.)
+    int recentStickersMaxCount = 300;      // Лимит недавних стикеров (300)
 
     // 3. Гейминг и система
-    bool enableInGameOverlay = false;      // Оверлей в играх (Shift + ~)
+    bool enableInGameOverlay = true;       // Оверлей в играх (Shift + ~)
+    QString overlayTargetGame = "all";     // "all" или имя процесса, например "javaw.exe", "cs2.exe"
     bool enableGameStatus = false;         // Авто-статус игры в профиле
-    bool autoLockOnWindowsLock = false;    // Авто-блокировка при Win + L (по умолчанию выкл, пока не задан пароль)
+    bool autoLockOnWindowsLock = false;    // Авто-блокировка при Win + L
+    QString customLockPasscode = "";       // Пользовательский PIN-код для блокировки Win + L
 
     // 4. Интерфейс (UI)
     bool enableMicaBackdrop = true;        // Эффект стекла Windows 10/11 (Acrylic / Mica)
     bool modernRoundedStyle = true;        // Современный стиль интерфейса (плавные скругления)
     bool hideStoriesBar = false;           // Скрыть плашку историй
-    bool hideSponsoredAds = true;          // Скрыть спонсорские посты
+    bool hideSponsoredAds = true;          // Скрыть спонсорские посты и рекламные плашки вверху
     bool hidePremiumPromos = true;         // Скрыть промо Premium
 
     void load() {
@@ -40,8 +42,10 @@ struct ClientConfig {
         unlimitedRecentStickers = s.value("unlimitedRecentStickers", unlimitedRecentStickers).toBool();
         recentStickersMaxCount = s.value("recentStickersMaxCount", recentStickersMaxCount).toInt();
         enableInGameOverlay = s.value("enableInGameOverlay", enableInGameOverlay).toBool();
+        overlayTargetGame = s.value("overlayTargetGame", overlayTargetGame).toString();
         enableGameStatus = s.value("enableGameStatus", enableGameStatus).toBool();
         autoLockOnWindowsLock = s.value("autoLockOnWindowsLock", autoLockOnWindowsLock).toBool();
+        customLockPasscode = s.value("customLockPasscode", customLockPasscode).toString();
         enableMicaBackdrop = s.value("enableMicaBackdrop", enableMicaBackdrop).toBool();
         modernRoundedStyle = s.value("modernRoundedStyle", modernRoundedStyle).toBool();
         hideStoriesBar = s.value("hideStoriesBar", hideStoriesBar).toBool();
@@ -59,8 +63,10 @@ struct ClientConfig {
         s.setValue("unlimitedRecentStickers", unlimitedRecentStickers);
         s.setValue("recentStickersMaxCount", recentStickersMaxCount);
         s.setValue("enableInGameOverlay", enableInGameOverlay);
+        s.setValue("overlayTargetGame", overlayTargetGame);
         s.setValue("enableGameStatus", enableGameStatus);
         s.setValue("autoLockOnWindowsLock", autoLockOnWindowsLock);
+        s.setValue("customLockPasscode", customLockPasscode);
         s.setValue("enableMicaBackdrop", enableMicaBackdrop);
         s.setValue("modernRoundedStyle", modernRoundedStyle);
         s.setValue("hideStoriesBar", hideStoriesBar);

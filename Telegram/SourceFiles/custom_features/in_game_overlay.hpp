@@ -3,12 +3,13 @@
 #ifdef Q_OS_WIN
 
 #include <windows.h>
+#include <tlhelp32.h>
+#include <psapi.h>
 #include <QWidget>
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
-#include <QGraphicsDropShadowEffect>
 #include <QPainter>
 #include <QMouseEvent>
 #include "custom_features/custom_settings.hpp"
@@ -21,7 +22,7 @@ public:
         : QWidget(parent, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool) {
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
-        resize(420, 560);
+        resize(440, 580);
         setupUI();
     }
 
@@ -29,8 +30,11 @@ public:
         if (isVisible()) {
             hide();
         } else {
+            // Центрируем оверлей или позиционируем поверх активного экрана
             show();
             raise();
+            activateWindow();
+            SetWindowPos((HWND)winId(), HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
         }
     }
 
@@ -39,10 +43,10 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        // Полупрозрачный современный стеклянный фон (Glass / Acrylic style)
-        QColor bgColor(24, 28, 36, 230);
+        // Полупрозрачный матовый фон (подходит для OpenGL, DirectX, Vulkan)
+        QColor bgColor(18, 22, 30, 235);
         p.setBrush(bgColor);
-        p.setPen(QPen(QColor(255, 255, 255, 30), 1.5));
+        p.setPen(QPen(QColor(255, 255, 255, 35), 1.5));
         p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 16, 16);
     }
 
@@ -73,7 +77,7 @@ private:
 
         auto *closeBtn = new QPushButton("✕", this);
         closeBtn->setFixedSize(24, 24);
-        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: transparent; border: none; font-size: 14px; font-weight: bold; border-radius: 12px; } QPushButton:hover { color: #FFFFFF; background: rgba(255,255,255,0.1); }");
+        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: transparent; border: none; font-size: 14px; font-weight: bold; border-radius: 12px; } QPushButton:hover { color: #FFFFFF; background: rgba(255,255,255,0.15); }");
         connect(closeBtn, &QPushButton::clicked, this, &InGameOverlayWidget::hide);
 
         headerLayout->addWidget(titleLabel);
@@ -82,18 +86,18 @@ private:
         mainLayout->addLayout(headerLayout);
 
         // Подсказка горячей клавиши
-        auto *hintLabel = new QLabel("Быстрый вызов: Shift + ~ (Тильда)", this);
-        hintLabel->setStyleSheet("color: #6C7883; font-size: 11px;");
+        auto *hintLabel = new QLabel("Вызов: Shift + ~ (Тильда) • Поддержка OpenGL / DirectX / Vulkan", this);
+        hintLabel->setStyleSheet("color: #7A8B9E; font-size: 11px;");
         mainLayout->addWidget(hintLabel);
 
-        // Список быстрых чатов (Placeholder с красивым списком)
+        // Панель статуса
         auto *contentBox = new QWidget(this);
-        contentBox->setStyleSheet("background: rgba(0, 0, 0, 0.25); border-radius: 12px;");
+        contentBox->setStyleSheet("background: rgba(0, 0, 0, 0.35); border-radius: 12px;");
         auto *contentLayout = new QVBoxLayout(contentBox);
-        contentLayout->setContentsMargins(12, 12, 12, 12);
+        contentLayout->setContentsMargins(14, 14, 14, 14);
 
-        auto *chatInfo = new QLabel("💬 Оверлей активен поверх ваших игр.\nПереписывайтесь с тиммейтами не сворачивая игру!", contentBox);
-        chatInfo->setStyleSheet("color: #D1D5DB; font-size: 12px; line-height: 1.4;");
+        auto *chatInfo = new QLabel("💬 Оверлей активен поверх ваших игр (включая Minecraft, CS2, Dota 2 и др.).\n\nВы можете перетаскивать это окно за шапку и общаться не сворачивая игру.", contentBox);
+        chatInfo->setStyleSheet("color: #D1D5DB; font-size: 12px; line-height: 1.5;");
         chatInfo->setWordWrap(true);
         contentLayout->addWidget(chatInfo);
         contentLayout->addStretch();
@@ -133,11 +137,41 @@ public:
 
     void handleHotKey(WPARAM wParam) {
         if (wParam == 0x5447 && GetConfig().enableInGameOverlay) {
-            if (!_overlayWidget) {
-                _overlayWidget = new InGameOverlayWidget();
+            if (isTargetGameActive()) {
+                if (!_overlayWidget) {
+                    _overlayWidget = new InGameOverlayWidget();
+                }
+                _overlayWidget->toggleVisibility();
             }
-            _overlayWidget->toggleVisibility();
         }
+    }
+
+    bool isTargetGameActive() const {
+        const auto target = GetConfig().overlayTargetGame.trimmed().toLower();
+        if (target.isEmpty() || target == "all") {
+            return true;
+        }
+
+        HWND foreground = GetForegroundWindow();
+        if (!foreground) return true;
+
+        DWORD pid = 0;
+        GetWindowThreadProcessId(foreground, &pid);
+        if (!pid) return true;
+
+        HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (!hProc) return true;
+
+        WCHAR procName[MAX_PATH] = { 0 };
+        DWORD size = MAX_PATH;
+        if (QueryFullProcessImageNameW(hProc, 0, procName, &size)) {
+            QString fullPath = QString::fromWCharArray(procName);
+            QString exeName = QFileInfo(fullPath).fileName().toLower();
+            CloseHandle(hProc);
+            return exeName.contains(target);
+        }
+        CloseHandle(hProc);
+        return true;
     }
 
     void cleanup() {

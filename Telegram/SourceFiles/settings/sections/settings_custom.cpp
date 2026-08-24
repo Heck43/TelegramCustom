@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common.h"
 #include "settings/settings_common_session.h"
 #include "settings/sections/settings_main.h"
+#include "settings/sections/settings_local_passcode.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
@@ -77,7 +78,7 @@ const auto kMeta = BuildHelper({
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/downloads_router"_q,
-		.title = rpl::single(u"Умная сортировка загрузок"_q),
+		.title = rpl::single(u"Умная сортировка загрузок по категориям"_q),
 		.checked = CustomFeatures::GetConfig().enableDownloadsRouter,
 		.keywords = { u"downloads"_q, u"router"_q, u"folders"_q },
 	})) {
@@ -93,7 +94,7 @@ const auto kMeta = BuildHelper({
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/unlimited_stickers"_q,
-		.title = rpl::single(u"1000 недавних стикеров"_q),
+		.title = rpl::single(u"300 недавних стикеров"_q),
 		.checked = CustomFeatures::GetConfig().unlimitedRecentStickers,
 		.keywords = { u"stickers"_q, u"recent"_q, u"unlimited"_q },
 	})) {
@@ -136,7 +137,7 @@ const auto kMeta = BuildHelper({
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/auto_lock"_q,
-		.title = rpl::single(u"Блокировка по Win + L (требуется код-пароль)"_q),
+		.title = rpl::single(u"Блокировка по Win + L"_q),
 		.checked = CustomFeatures::GetConfig().autoLockOnWindowsLock,
 		.keywords = { u"lock"_q, u"security"_q, u"win+l"_q, u"passcode"_q },
 	})) {
@@ -146,6 +147,13 @@ const auto kMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+
+	builder.addSectionButton({
+		.title = rpl::single(u"Настроить код-пароль блокировки"_q),
+		.targetSection = LocalPasscodeId(),
+		.icon = &st::menuIconLock,
+		.keywords = { u"passcode"_q, u"pin"_q, u"lock"_q, u"password"_q },
+	});
 
 	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Интерфейс и стиль"_q));
@@ -159,6 +167,19 @@ const auto kMeta = BuildHelper({
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().enableMicaBackdrop = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/modern_rounded"_q,
+		.title = rpl::single(u"Современные скругленные облачка сообщений"_q),
+		.checked = CustomFeatures::GetConfig().modernRoundedStyle,
+		.keywords = { u"style"_q, u"rounded"_q, u"bubble"_q, u"modern"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().modernRoundedStyle = checked;
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
@@ -178,7 +199,7 @@ const auto kMeta = BuildHelper({
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/hide_ads"_q,
-		.title = rpl::single(u"Скрыть рекламу в каналах"_q),
+		.title = rpl::single(u"Скрыть рекламу в каналах и ботах"_q),
 		.checked = CustomFeatures::GetConfig().hideSponsoredAds,
 		.keywords = { u"ads"_q, u"hide"_q, u"sponsored"_q },
 	})) {

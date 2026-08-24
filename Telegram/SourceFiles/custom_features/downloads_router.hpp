@@ -23,41 +23,62 @@ public:
     static FileCategory CategorizeFile(const QString &fileName) {
         const auto ext = QFileInfo(fileName).suffix().toLower();
 
+        // 1. Изображения
         if (ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "gif" || 
-            ext == "webp" || ext == "bmp" || ext == "svg" || ext == "heic") {
+            ext == "webp" || ext == "bmp" || ext == "svg" || ext == "heic" ||
+            ext == "psd" || ext == "ico" || ext == "tiff" || ext == "ai") {
             return FileCategory::Images;
         }
+
+        // 2. Аудио и музыка
         if (ext == "mp3" || ext == "flac" || ext == "wav" || ext == "ogg" || 
-            ext == "m4a" || ext == "aac" || ext == "opus") {
+            ext == "m4a" || ext == "aac" || ext == "opus" || ext == "mid" ||
+            ext == "wma" || ext == "alac") {
             return FileCategory::Audio;
         }
+
+        // 3. Видео
         if (ext == "mp4" || ext == "mkv" || ext == "avi" || ext == "mov" || 
-            ext == "webm" || ext == "wmv" || ext == "flv") {
+            ext == "webm" || ext == "wmv" || ext == "flv" || ext == "m4v" ||
+            ext == "3gp") {
             return FileCategory::Video;
         }
+
+        // 4. Документы, книги и логи
         if (ext == "pdf" || ext == "docx" || ext == "doc" || ext == "xlsx" || 
-            ext == "pptx" || ext == "txt" || ext == "csv" || ext == "epub") {
+            ext == "xls" || ext == "pptx" || ext == "ppt" || ext == "txt" || 
+            ext == "log" || ext == "html" || ext == "htm" || ext == "csv" || 
+            ext == "epub" || ext == "fb2" || ext == "json" || ext == "xml" || 
+            ext == "rtf" || ext == "md" || ext == "odt" || ext == "ods") {
             return FileCategory::Documents;
         }
+
+        // 5. Архивы
         if (ext == "zip" || ext == "rar" || ext == "7z" || ext == "tar" || 
-            ext == "gz" || ext == "bz2" || ext == "xz") {
+            ext == "gz" || ext == "bz2" || ext == "xz" || ext == "tgz" ||
+            ext == "zst" || ext == "cab") {
             return FileCategory::Archives;
         }
-        if (ext == "exe" || ext == "msi" || ext == "bat" || ext == "cmd" || 
-            ext == "ps1" || ext == "apk") {
+
+        // 6. Программы и исполняемые файлы
+        if (ext == "exe" || ext == "msi" || ext == "dll" || ext == "bat" || 
+            ext == "cmd" || ext == "ps1" || ext == "apk" || ext == "vbs" || 
+            ext == "jar" || ext == "msix" || ext == "appx") {
             return FileCategory::Programs;
         }
+
         return FileCategory::Other;
     }
 
     static QString GetSuggestedDownloadPath(const QString &fileName, const QString &defaultPath = QString()) {
         if (!GetConfig().enableDownloadsRouter) {
             return defaultPath.isEmpty()
-                ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
+                ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/Telegram Desktop"
                 : defaultPath;
         }
 
         const auto category = CategorizeFile(fileName);
+        const auto downloadsBase = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/Telegram Desktop";
         QString targetDir;
 
         switch (category) {
@@ -74,10 +95,14 @@ public:
             targetDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Telegram Documents";
             break;
         case FileCategory::Archives:
+            targetDir = downloadsBase + "/Архивы";
+            break;
         case FileCategory::Programs:
+            targetDir = downloadsBase + "/Программы";
+            break;
         case FileCategory::Other:
         default:
-            targetDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/Telegram Desktop";
+            targetDir = downloadsBase + "/Разное";
             break;
         }
 
