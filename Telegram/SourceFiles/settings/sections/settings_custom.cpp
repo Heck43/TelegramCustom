@@ -14,6 +14,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common.h"
 #include "settings/settings_common_session.h"
 #include "settings/sections/settings_main.h"
+#include "main/main_session.h"
+#include "main/main_domain.h"
+#include "storage/storage_domain.h"
 #include "settings/sections/settings_local_passcode.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
@@ -148,10 +151,16 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	builder.addSectionButton({
+	builder.addButton({
 		.title = rpl::single(u"Настроить код-пароль блокировки"_q),
-		.targetSection = LocalPasscodeId(),
 		.icon = &st::menuIconLock,
+		.onClick = [=] {
+			if (builder.session()->domain().local().hasLocalPasscode()) {
+				builder.showOther()(LocalPasscodeCheckId());
+			} else {
+				builder.showOther()(LocalPasscodeCreateId());
+			}
+		},
 		.keywords = { u"passcode"_q, u"pin"_q, u"lock"_q, u"password"_q },
 	});
 
