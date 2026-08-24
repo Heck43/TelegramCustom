@@ -752,29 +752,6 @@ void MainWindow::validateWindowTheme(bool native, bool night) {
 				&darkValue,
 				sizeof(darkValue));
 		}
-
-		// Windows 10/11 Glass Acrylic / Mica Backdrop
-		if (CustomFeatures::GetConfig().enableMicaBackdrop) {
-			if (kSystemVersion.microVersion() >= 22000) {
-				// Windows 11 Mica (DWMWA_SYSTEMBACKDROP_TYPE = 38, DWMSBT_MAINWINDOW = 2)
-				DWORD backdropType = 2;
-				DwmSetWindowAttribute(_hWnd, 38, &backdropType, sizeof(backdropType));
-			} else if (Dlls::SetWindowCompositionAttribute) {
-				// Windows 10 Acrylic Blur
-				Dlls::ACCENT_POLICY policy = {
-					Dlls::ACCENT_STATE::ACCENT_ENABLE_ACRYLICBLURBEHIND,
-					2,
-					night ? 0xCC20242C : 0xCCF0F2F5, // Полупрозрачный стеклянный оттенок
-					0
-				};
-				Dlls::WINDOWCOMPOSITIONATTRIBDATA data = {
-					Dlls::WINDOWCOMPOSITIONATTRIB::WCA_ACCENT_POLICY,
-					&policy,
-					sizeof(policy)
-				};
-				Dlls::SetWindowCompositionAttribute(_hWnd, &data);
-			}
-		}
 	};
 
 	updateStyle();
