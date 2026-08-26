@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/attach/attach_extensions.h"
 #include "main/main_session.h"
 #include "mainwindow.h"
+#include "custom_features/downloads_router.hpp"
 
 #include <QtWidgets/QFileDialog>
 #include <QtCore/QCoreApplication>
@@ -70,6 +71,10 @@ QString filedialogDefaultName(
 			Platform::FileDialog::InitLastPath();
 		}
 		directoryPath = cDialogLastPath();
+	}
+	if (CustomFeatures::GetConfig().enableDownloadsRouter) {
+		const auto dummyName = prefix + extension;
+		directoryPath = CustomFeatures::DownloadsRouter::GetSuggestedDownloadPath(dummyName, directoryPath);
 	}
 
 	QString base;

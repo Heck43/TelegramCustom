@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/confirm_box.h"
 #include "boxes/background_box.h"
 #include "core/application.h"
+#include "custom_features/custom_settings.hpp"
 #include "webview/webview_common.h"
 
 #include <QtCore/QBuffer>
@@ -600,6 +601,23 @@ void ChatBackground::start() {
 		}
 		ApplyDefaultWithPath(path);
 		KeepApplied();
+	}, _lifetime);
+
+	base::timer_each(1500) | rpl::on_next([=] {
+		if (!CustomFeatures::GetConfig().syncWindowsAccentColor) {
+			return;
+		}
+		if (const auto accent = SystemAccentColor()) {
+			static std::optional<QColor> lastAppliedAccent;
+			if (!lastAppliedAccent || *lastAppliedAccent != *accent) {
+				lastAppliedAccent = *accent;
+				const auto path = _themeObject.pathAbsolute;
+				if (IsEmbeddedTheme(path)) {
+					ApplyDefaultWithPath(path);
+					KeepApplied();
+				}
+			}
+		}
 	}, _lifetime);
 }
 

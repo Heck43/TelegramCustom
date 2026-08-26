@@ -15,6 +15,8 @@
 #include <QVector>
 #include <QPair>
 #include <QFileInfo>
+#include <QtCore/QTimer>
+#include "crl/crl_on_main.h"
 #include "custom_features/custom_settings.hpp"
 
 namespace CustomFeatures {
@@ -194,37 +196,34 @@ public:
     }
 
     void updateState() {
-        if (!_hwnd) return;
         if (GetConfig().enableInGameOverlay) {
-            // Регистрируем несколько альтернативных горячих клавиш для надежности
-            RegisterHotKey(_hwnd, 0x5447, MOD_SHIFT, VK_OEM_3);               // Shift + ~ (Тильда)
-            RegisterHotKey(_hwnd, 0x5448, MOD_SHIFT, VK_F11);                 // Shift + F11
-            RegisterHotKey(_hwnd, 0x5449, MOD_CONTROL | MOD_SHIFT, 'O');      // Ctrl + Shift + O
-            RegisterHotKey(_hwnd, 0x544A, MOD_ALT, VK_OEM_3);                 // Alt + ~
+            installHook();
             if (!_overlayWidget) {
                 _overlayWidget = new InGameOverlayWidget();
             }
         } else {
-            UnregisterHotKey(_hwnd, 0x5447);
-            UnregisterHotKey(_hwnd, 0x5448);
-            UnregisterHotKey(_hwnd, 0x5449);
-            UnregisterHotKey(_hwnd, 0x544A);
+            removeHook();
             if (_overlayWidget) {
                 _overlayWidget->hide();
             }
         }
     }
 
+    void triggerOverlay() {
+        if (!GetConfig().enableInGameOverlay) return;
+        if (!_overlayWidget) {
+            _overlayWidget = new InGameOverlayWidget();
+        }
+        if (_overlayWidget->isVisible()) {
+            _overlayWidget->hide();
+        } else if (isTargetGameActive()) {
+            _overlayWidget->toggleVisibility();
+        }
+    }
+
     void handleHotKey(WPARAM wParam) {
         if (wParam >= 0x5447 && wParam <= 0x544A && GetConfig().enableInGameOverlay) {
-            if (!_overlayWidget) {
-                _overlayWidget = new InGameOverlayWidget();
-            }
-            if (_overlayWidget->isVisible()) {
-                _overlayWidget->hide();
-            } else if (isTargetGameActive()) {
-                _overlayWidget->toggleVisibility();
-            }
+            triggerOverlay();
         }
     }
 
@@ -271,6 +270,7 @@ public:
     }
 
     void cleanup() {
+        removeHook();
         if (_hwnd) {
             UnregisterHotKey(_hwnd, 0x5447);
             UnregisterHotKey(_hwnd, 0x5448);
@@ -285,7 +285,61 @@ public:
     }
 
 private:
+    void installHook() {
+        if (!_hook) {
+            _hook = SetWindowsHookExW(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(nullptr), 0);
+        }
+        if (_hwnd) {
+            RegisterHotKey(_hwnd, 0x5447, MOD_SHIFT, VK_OEM_3);
+            RegisterHotKey(_hwnd, 0x5448, MOD_SHIFT, VK_F11);
+            RegisterHotKey(_hwnd, 0x5449, MOD_CONTROL | MOD_SHIFT, 'O');
+            RegisterHotKey(_hwnd, 0x544A, MOD_ALT, VK_OEM_3);
+        }
+    }
+
+    void removeHook() {
+        if (_hook) {
+            UnhookWindowsHookEx(_hook);
+            _hook = nullptr;
+        }
+    }
+
+    static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+        if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
+            auto *p = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
+            const bool shift = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+            const bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+            const bool alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
+            bool triggered = false;
+            // Shift + ~ (VK_OEM_3 = 0xC0)
+            if (shift && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
+                triggered = true;
+            }
+            // Shift + F11
+            else if (shift && p->vkCode == VK_F11) {
+                triggered = true;
+            }
+            // Ctrl + Shift + O
+            else if (ctrl && shift && p->vkCode == 'O') {
+                triggered = true;
+            }
+            // Alt + ~
+            else if (alt && (p->vkCode == VK_OEM_3 || p->vkCode == 0xC0)) {
+                triggered = true;
+            }
+
+            if (triggered && GetConfig().enableInGameOverlay) {
+                crl::on_main([] {
+                    Instance().triggerOverlay();
+                });
+            }
+        }
+        return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    }
+
     HWND _hwnd = nullptr;
+    HHOOK _hook = nullptr;
     InGameOverlayWidget *_overlayWidget = nullptr;
 };
 
