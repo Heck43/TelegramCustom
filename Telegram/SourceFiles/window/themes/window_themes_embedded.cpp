@@ -201,12 +201,12 @@ std::optional<QColor> SystemAccentColor() {
 	}
 
 	// 2. Registry AccentColor (ABGR)
-	DWORD accent = 0;
-	DWORD size = sizeof(accent);
-	if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", L"AccentColor", RRF_RT_REG_DWORD, nullptr, &accent, &size) == ERROR_SUCCESS && accent != 0) {
-		int r = (accent & 0x000000FF);
-		int g = (accent & 0x0000FF00) >> 8;
-		int b = (accent & 0x00FF0000) >> 16;
+	DWORD accentDwm = 0;
+	DWORD size = sizeof(accentDwm);
+	if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", L"AccentColor", RRF_RT_REG_DWORD, nullptr, &accentDwm, &size) == ERROR_SUCCESS && accentDwm != 0) {
+		int r = (accentDwm & 0x000000FF);
+		int g = (accentDwm & 0x0000FF00) >> 8;
+		int b = (accentDwm & 0x00FF0000) >> 16;
 		if (r > 0 || g > 0 || b > 0) {
 			return QColor(r, g, b);
 		}
@@ -236,8 +236,8 @@ std::optional<QColor> SystemAccentColor() {
 		}
 	}
 #endif
-	const auto accent = QPalette().color(QPalette::Highlight);
-	return accent.isValid() ? std::make_optional(accent) : std::nullopt;
+	const auto defaultAccent = QPalette().color(QPalette::Highlight);
+	return defaultAccent.isValid() ? std::make_optional(defaultAccent) : std::nullopt;
 }
 
 style::colorizer ColorizerForTheme(const QString &absolutePath) {
