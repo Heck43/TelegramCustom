@@ -19,6 +19,7 @@
 #include <QtCore/QPair>
 #include <QtCore/QFileInfo>
 #include <QtCore/QTimer>
+#include <algorithm>
 #include "crl/crl_on_main.h"
 #include "custom_features/custom_settings.hpp"
 #include "core/application.h"
@@ -28,6 +29,8 @@
 #include "data/data_session.h"
 #include "data/data_peer.h"
 #include "data/data_user.h"
+#include "data/data_channel.h"
+#include "data/data_chat.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/view/history_view_element.h"
@@ -37,6 +40,9 @@
 #include "dialogs/dialogs_key.h"
 #include "apiwrap.h"
 #include "api/api_send_progress.h"
+#include "ui/painter.h"
+#include "ui/empty_userpic.h"
+#include "base/unixtime.h"
 
 namespace CustomFeatures {
 
@@ -45,6 +51,28 @@ inline Main::Session *GetActiveSession() {
         return &Core::App().domain().active().session();
     }
     return nullptr;
+}
+
+inline QPixmap GeneratePeerAvatarPixmap(PeerData *peer, int size) {
+    if (!peer) return QPixmap();
+    const int pxSize = size * 2;
+    QPixmap pix(pxSize, pxSize);
+    pix.fill(Qt::transparent);
+    {
+        Painter p(&pix);
+        p.setRenderHint(QPainter::Antialiasing);
+        if (peer->isSelf()) {
+            Ui::EmptyUserpic::PaintSavedMessages(p, 0, 0, pxSize, pxSize);
+        } else if (peer->isRepliesChat()) {
+            Ui::EmptyUserpic::PaintRepliesMessages(p, 0, 0, pxSize, pxSize);
+        } else {
+            auto view = peer->createUserpicView();
+            peer->loadUserpic();
+            peer->paintUserpicLeft(p, view, 0, 0, pxSize, pxSize);
+        }
+    }
+    pix.setDevicePixelRatio(2.0);
+    return pix;
 }
 
 struct RunningAppInfo {
@@ -123,7 +151,7 @@ public:
         : QWidget(parent, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool) {
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
-        resize(840, 560);
+        resize(960, 640);
         setupUI();
     }
 
@@ -143,7 +171,6 @@ public:
         const auto session = GetActiveSession();
         if (!session) return;
 
-        // Очищаем текущий список чатов
         QLayoutItem *child;
         while ((child = _chatListLayout->takeAt(0)) != nullptr) {
             if (child->widget()) {
@@ -162,7 +189,7 @@ public:
                             firstHistory = history;
                         }
                         addChatRowWidget(history);
-                        if (++count >= 20) break;
+                        if (++count >= 30) break;
                     }
                 }
             }
@@ -179,12 +206,28 @@ public:
         if (!history) return;
         _activeHistory = history;
 
-        const QString peerName = history->peer ? history->peer->name() : "Чат";
+        const QString peerName = history->peer ? history->peer->name() : "Диалог";
         _chatHeaderName->setText(peerName);
-        _chatHeaderAvatar->setText(peerName.left(1).toUpper());
-        _chatHeaderStatus->setText("в сети");
+        _chatHeaderAvatar->setPixmap(GeneratePeerAvatarPixmap(history->peer, 36));
 
-        // Загружаем сообщения выбранного чата
+        const bool isChannel = history->peer && history->peer->isChannel() && !history->peer->isMegagroup();
+        const bool isGroup = history->peer && (history->peer->isChat() || history->peer->isMegagroup());
+
+        if (isChannel) {
+            _chatHeaderStatus->setText("📢 Канал");
+            _inputContainer->hide();
+            _channelBanner->show();
+        } else if (isGroup) {
+            _chatHeaderStatus->setText("👥 Группа");
+            _inputContainer->show();
+            _channelBanner->hide();
+        } else {
+            _chatHeaderStatus->setText("👤 Личные сообщения");
+            _inputContainer->show();
+            _channelBanner->hide();
+        }
+
+        // Очищаем текущие сообщения
         QLayoutItem *child;
         while ((child = _messagesLayout->takeAt(0)) != nullptr) {
             if (child->widget()) {
@@ -193,23 +236,40 @@ public:
             delete child;
         }
 
-        int msgCount = 0;
-        for (const auto &block : history->blocks) {
-            for (const auto &view : block->messages) {
-                if (const auto item = view->data()) {
-                    const bool out = item->out();
-                    const QString text = item->originalText().text;
-                    if (!text.isEmpty()) {
-                        addMessageBubble(text, out);
-                        if (++msgCount >= 30) break;
-                    }
+        // Собираем последние сообщения с конца (от новых к старым)
+        std::vector<HistoryItem*> recentMessages;
+        for (auto blockIt = history->blocks.rbegin(); blockIt != history->blocks.rend(); ++blockIt) {
+            auto *block = blockIt->get();
+            for (auto msgIt = block->messages.rbegin(); msgIt != block->messages.rend(); ++msgIt) {
+                if (const auto item = (*msgIt)->data()) {
+                    recentMessages.push_back(item);
+                    if (recentMessages.size() >= 45) break;
                 }
             }
-            if (msgCount >= 30) break;
+            if (recentMessages.size() >= 45) break;
+        }
+
+        // Разворачиваем в хронологический порядок (сверху вниз)
+        std::reverse(recentMessages.begin(), recentMessages.end());
+
+        for (const auto item : recentMessages) {
+            const bool out = item->out();
+            QString text = item->originalText().text;
+            if (text.isEmpty()) {
+                text = item->notificationText().text;
+            }
+            if (text.isEmpty()) {
+                text = item->isService() ? "Уведомление" : "[Медиасообщение]";
+            }
+
+            const auto date = base::unixtime::parse(item->date());
+            const QString timeStr = date.toString("HH:mm");
+
+            addMessageBubble(text, out, timeStr);
         }
 
         _messagesLayout->addStretch();
-        QTimer::singleShot(20, [=] {
+        QTimer::singleShot(30, [=] {
             if (_msgScrollArea && _msgScrollArea->verticalScrollBar()) {
                 _msgScrollArea->verticalScrollBar()->setValue(_msgScrollArea->verticalScrollBar()->maximum());
             }
@@ -228,10 +288,11 @@ public:
         message.textWithTags = { text };
         session->api().sendMessage(std::move(message));
 
-        addMessageBubble(text, true);
+        const auto now = QDateTime::currentDateTime();
+        addMessageBubble(text, true, now.toString("HH:mm"));
         _msgInput->clear();
 
-        QTimer::singleShot(20, [=] {
+        QTimer::singleShot(30, [=] {
             if (_msgScrollArea && _msgScrollArea->verticalScrollBar()) {
                 _msgScrollArea->verticalScrollBar()->setValue(_msgScrollArea->verticalScrollBar()->maximum());
             }
@@ -243,10 +304,10 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        // Насыщенный глубокий темный фон (#080B10, 99% непрозрачный)
+        // Ультра-темный фон (#080B10, 99% непрозрачный)
         QColor bgColor(8, 11, 16, 252);
         p.setBrush(bgColor);
-        p.setPen(QPen(QColor(255, 255, 255, 38), 1.4));
+        p.setPen(QPen(QColor(255, 255, 255, 35), 1.5));
         p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 18, 18);
     }
 
@@ -278,31 +339,27 @@ private:
         if (!history || !history->peer) return;
 
         const QString name = history->peer->name();
-        const QString initial = name.left(1).toUpper();
         const int unread = history->unreadCount();
 
         QString lastMsg = "...";
         if (const auto last = history->lastMessage()) {
             const QString t = last->originalText().text;
-            if (!t.isEmpty()) lastMsg = t;
+            lastMsg = !t.isEmpty() ? t : last->notificationText().text;
+            if (lastMsg.isEmpty()) lastMsg = "[Медиа]";
         }
 
-        auto *item = new QWidget(_chatListWidget);
+        const auto item = new QWidget(_chatListWidget);
         item->setCursor(Qt::PointingHandCursor);
-        item->setStyleSheet("QWidget { background: rgba(255,255,255,0.03); border-radius: 10px; } QWidget:hover { background: rgba(255,255,255,0.09); }");
+        item->setStyleSheet("QWidget { background: rgba(255,255,255,0.03); border-radius: 12px; } QWidget:hover { background: rgba(255,255,255,0.09); }");
         
         auto *itemLayout = new QHBoxLayout(item);
         itemLayout->setContentsMargins(8, 8, 8, 8);
         itemLayout->setSpacing(10);
 
-        static const QStringList kColors = { "#E11D48", "#6366F1", "#10B981", "#0284C7", "#D97706", "#8B5CF6", "#EC4899" };
-        const uint hash = qHash(name);
-        const QString avatarBg = kColors[hash % kColors.size()];
-
-        auto *avatar = new QLabel(initial, item);
-        avatar->setFixedSize(36, 36);
-        avatar->setAlignment(Qt::AlignCenter);
-        avatar->setStyleSheet(QString("background: %1; color: #FFFFFF; font-weight: bold; border-radius: 18px; font-size: 14px;").arg(avatarBg));
+        // Реальная аватарка собеседника
+        auto *avatar = new QLabel(item);
+        avatar->setFixedSize(38, 38);
+        avatar->setPixmap(GeneratePeerAvatarPixmap(history->peer, 38));
         itemLayout->addWidget(avatar);
 
         auto *infoLayout = new QVBoxLayout();
@@ -316,7 +373,7 @@ private:
         infoLayout->addLayout(topRow);
 
         auto *bottomRow = new QHBoxLayout();
-        auto *msgLabel = new QLabel(lastMsg.left(26) + (lastMsg.length() > 26 ? "..." : ""), item);
+        auto *msgLabel = new QLabel(lastMsg.left(30) + (lastMsg.length() > 30 ? "..." : ""), item);
         msgLabel->setStyleSheet("color: #94A3B8; font-size: 11px;");
         bottomRow->addWidget(msgLabel);
         bottomRow->addStretch();
@@ -345,34 +402,47 @@ private:
         _chatListLayout->addWidget(overlayWrap);
     }
 
-    void addMessageBubble(const QString &text, bool out) {
-        auto *bubble = new QLabel(text + (out ? "  ✓✓" : ""), _messagesWidget);
-        bubble->setWordWrap(true);
-        bubble->setMaximumWidth(440);
+    void addMessageBubble(const QString &text, bool out, const QString &timeStr) {
+        auto *bubble = new QWidget(_messagesWidget);
+        auto *bubbleLayout = new QVBoxLayout(bubble);
+        bubbleLayout->setContentsMargins(12, 8, 12, 8);
+        bubbleLayout->setSpacing(3);
+
+        auto *msgLabel = new QLabel(text, bubble);
+        msgLabel->setWordWrap(true);
+        msgLabel->setStyleSheet("color: #FFFFFF; font-size: 12px; line-height: 1.4;");
+        bubbleLayout->addWidget(msgLabel);
+
+        auto *timeLabel = new QLabel(timeStr + (out ? "  ✓✓" : ""), bubble);
+        timeLabel->setAlignment(Qt::AlignRight);
+        timeLabel->setStyleSheet(out ? "color: rgba(255,255,255,0.7); font-size: 10px;" : "color: #94A3B8; font-size: 10px;");
+        bubbleLayout->addWidget(timeLabel);
+
+        bubble->setMaximumWidth(520);
 
         if (out) {
-            bubble->setStyleSheet("background: #0284C7; color: #FFFFFF; border-radius: 12px; padding: 8px 14px; font-size: 12px; margin: 2px 0px;");
+            bubble->setStyleSheet("background: #0284C7; border-radius: 14px; margin: 2px 0px;");
             _messagesLayout->addWidget(bubble, 0, Qt::AlignRight);
         } else {
-            bubble->setStyleSheet("background: rgba(30, 41, 59, 0.92); color: #F1F5F9; border-radius: 12px; padding: 8px 14px; font-size: 12px; margin: 2px 0px;");
+            bubble->setStyleSheet("background: rgba(30, 41, 59, 0.94); border-radius: 14px; margin: 2px 0px;");
             _messagesLayout->addWidget(bubble, 0, Qt::AlignLeft);
         }
     }
 
     void setupUI() {
         auto *rootLayout = new QVBoxLayout(this);
-        rootLayout->setContentsMargins(16, 14, 16, 14);
-        rootLayout->setSpacing(10);
+        rootLayout->setContentsMargins(18, 14, 18, 14);
+        rootLayout->setSpacing(12);
 
-        // 1. Верхняя панель (Header / Title bar)
+        // 1. Верхняя панель (Header)
         auto *headerLayout = new QHBoxLayout();
         headerLayout->setSpacing(10);
 
         auto *appIconLabel = new QLabel("🎮", this);
-        appIconLabel->setStyleSheet("font-size: 18px;");
+        appIconLabel->setStyleSheet("font-size: 20px;");
 
         auto *titleLabel = new QLabel("Telegram Game Overlay", this);
-        titleLabel->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 15px; font-family: 'Segoe UI', sans-serif;");
+        titleLabel->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 16px; font-family: 'Segoe UI', sans-serif;");
 
         auto *onlineDot = new QLabel("● В сети", this);
         onlineDot->setStyleSheet("color: #22C55E; font-size: 12px; font-weight: 600; margin-left: 4px;");
@@ -387,34 +457,35 @@ private:
         headerLayout->addWidget(hotkeyHint);
 
         auto *closeBtn = new QPushButton("✕", this);
-        closeBtn->setFixedSize(26, 26);
+        closeBtn->setFixedSize(28, 28);
         closeBtn->setCursor(Qt::PointingHandCursor);
-        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: rgba(255,255,255,0.08); border: none; font-size: 14px; font-weight: bold; border-radius: 13px; } QPushButton:hover { color: #FFFFFF; background: rgba(239,68,68,0.7); }");
+        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: rgba(255,255,255,0.08); border: none; font-size: 14px; font-weight: bold; border-radius: 14px; } QPushButton:hover { color: #FFFFFF; background: rgba(239,68,68,0.7); }");
         connect(closeBtn, &QPushButton::clicked, this, &InGameOverlayWidget::hide);
         headerLayout->addWidget(closeBtn);
 
         rootLayout->addLayout(headerLayout);
 
-        // 2. Основная рабочая область (Split: Список диалогов + Окно текущего чата)
+        // 2. Основная область (Диалоги + Чат)
         auto *mainSplitter = new QHBoxLayout();
-        mainSplitter->setSpacing(12);
+        mainSplitter->setSpacing(14);
 
-        // --- Левая колонка: Реальный список чатов ---
+        // --- Левая колонка: Реальный список диалогов (Ширина 300px) ---
         auto *leftSidebar = new QWidget(this);
-        leftSidebar->setFixedWidth(270);
-        leftSidebar->setStyleSheet("background: rgba(14, 18, 26, 0.85); border-radius: 14px;");
+        leftSidebar->setFixedWidth(300);
+        leftSidebar->setStyleSheet("background: rgba(14, 18, 26, 0.9); border-radius: 14px;");
         auto *leftLayout = new QVBoxLayout(leftSidebar);
         leftLayout->setContentsMargins(10, 10, 10, 10);
         leftLayout->setSpacing(8);
 
         auto *searchBar = new QLineEdit(leftSidebar);
         searchBar->setPlaceholderText("🔍 Поиск диалогов...");
-        searchBar->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.07); color: #E2E8F0; border: none; border-radius: 10px; padding: 7px 12px; font-size: 12px; } QLineEdit:focus { background: rgba(255,255,255,0.12); }");
+        searchBar->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.07); color: #E2E8F0; border: none; border-radius: 10px; padding: 8px 12px; font-size: 12px; } QLineEdit:focus { background: rgba(255,255,255,0.12); }");
         leftLayout->addWidget(searchBar);
 
         auto *chatScrollArea = new QScrollArea(leftSidebar);
         chatScrollArea->setWidgetResizable(true);
-        chatScrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollBar:vertical { background: transparent; width: 6px; } QScrollBar::handle:vertical { background: rgba(255,255,255,0.15); border-radius: 3px; }");
+        chatScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        chatScrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollBar:vertical { background: transparent; width: 5px; margin: 0px; } QScrollBar::handle:vertical { background: rgba(255,255,255,0.18); border-radius: 2px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; } QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }");
         
         _chatListWidget = new QWidget();
         _chatListWidget->setStyleSheet("background: transparent;");
@@ -429,22 +500,21 @@ private:
 
         // --- Правая колонка: Окно активного чата ---
         auto *chatArea = new QWidget(this);
-        chatArea->setStyleSheet("background: rgba(14, 18, 26, 0.85); border-radius: 14px;");
+        chatArea->setStyleSheet("background: rgba(14, 18, 26, 0.9); border-radius: 14px;");
         auto *chatLayout = new QVBoxLayout(chatArea);
-        chatLayout->setContentsMargins(14, 12, 14, 12);
+        chatLayout->setContentsMargins(16, 12, 16, 12);
         chatLayout->setSpacing(10);
 
         // Шапка чата
         auto *chatHeader = new QHBoxLayout();
-        _chatHeaderAvatar = new QLabel("T", chatArea);
-        _chatHeaderAvatar->setFixedSize(32, 32);
-        _chatHeaderAvatar->setAlignment(Qt::AlignCenter);
-        _chatHeaderAvatar->setStyleSheet("background: #0284C7; color: #FFFFFF; font-weight: bold; border-radius: 16px; font-size: 13px;");
+        chatHeader->setSpacing(10);
+        _chatHeaderAvatar = new QLabel(chatArea);
+        _chatHeaderAvatar->setFixedSize(36, 36);
         
         auto *chatTitleLayout = new QVBoxLayout();
         chatTitleLayout->setSpacing(1);
         _chatHeaderName = new QLabel("Выберите диалог", chatArea);
-        _chatHeaderName->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 13px;");
+        _chatHeaderName->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 14px;");
         _chatHeaderStatus = new QLabel("в сети", chatArea);
         _chatHeaderStatus->setStyleSheet("color: #38BDF8; font-size: 11px;");
         chatTitleLayout->addWidget(_chatHeaderName);
@@ -455,9 +525,9 @@ private:
         chatHeader->addStretch();
 
         auto *callBtn = new QPushButton("📞", chatArea);
-        callBtn->setFixedSize(28, 28);
+        callBtn->setFixedSize(30, 30);
         callBtn->setCursor(Qt::PointingHandCursor);
-        callBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.07); color: #FFFFFF; border: none; border-radius: 14px; font-size: 12px; } QPushButton:hover { background: rgba(255,255,255,0.15); }");
+        callBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.07); color: #FFFFFF; border: none; border-radius: 15px; font-size: 13px; } QPushButton:hover { background: rgba(255,255,255,0.15); }");
         chatHeader->addWidget(callBtn);
 
         chatLayout->addLayout(chatHeader);
@@ -465,36 +535,51 @@ private:
         // Область сообщений со скроллом
         _msgScrollArea = new QScrollArea(chatArea);
         _msgScrollArea->setWidgetResizable(true);
-        _msgScrollArea->setStyleSheet("QScrollArea { background: rgba(0,0,0,0.3); border: none; border-radius: 10px; } QScrollBar:vertical { background: transparent; width: 6px; } QScrollBar::handle:vertical { background: rgba(255,255,255,0.15); border-radius: 3px; }");
+        _msgScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        _msgScrollArea->setStyleSheet("QScrollArea { background: rgba(0,0,0,0.35); border: none; border-radius: 12px; } QScrollBar:vertical { background: transparent; width: 5px; margin: 0px; } QScrollBar::handle:vertical { background: rgba(255,255,255,0.18); border-radius: 2px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; } QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }");
         
         _messagesWidget = new QWidget();
         _messagesWidget->setStyleSheet("background: transparent;");
         _messagesLayout = new QVBoxLayout(_messagesWidget);
-        _messagesLayout->setContentsMargins(12, 12, 12, 12);
+        _messagesLayout->setContentsMargins(14, 14, 14, 14);
         _messagesLayout->setSpacing(8);
         _messagesLayout->addStretch();
         _msgScrollArea->setWidget(_messagesWidget);
 
         chatLayout->addWidget(_msgScrollArea);
 
+        // Баннер для каналов
+        _channelBanner = new QWidget(chatArea);
+        auto *bannerLayout = new QHBoxLayout(_channelBanner);
+        bannerLayout->setContentsMargins(12, 8, 12, 8);
+        auto *bannerText = new QLabel("📢 Этот канал открыт в режиме только для чтения", _channelBanner);
+        bannerText->setAlignment(Qt::AlignCenter);
+        bannerText->setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 500;");
+        bannerLayout->addWidget(bannerText);
+        _channelBanner->setStyleSheet("background: rgba(255,255,255,0.05); border-radius: 12px;");
+        _channelBanner->hide();
+        chatLayout->addWidget(_channelBanner);
+
         // Поле ввода сообщения
-        auto *inputLayout = new QHBoxLayout();
+        _inputContainer = new QWidget(chatArea);
+        auto *inputLayout = new QHBoxLayout(_inputContainer);
+        inputLayout->setContentsMargins(0, 0, 0, 0);
         inputLayout->setSpacing(8);
 
-        _msgInput = new QLineEdit(chatArea);
+        _msgInput = new QLineEdit(_inputContainer);
         _msgInput->setPlaceholderText("Написать сообщение... (Enter для отправки)");
-        _msgInput->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.08); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 8px 14px; font-size: 12px; } QLineEdit:focus { border: 1px solid rgba(56, 189, 248, 0.6); }");
+        _msgInput->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.08); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; padding: 9px 16px; font-size: 13px; } QLineEdit:focus { border: 1px solid rgba(56, 189, 248, 0.6); }");
         connect(_msgInput, &QLineEdit::returnPressed, this, &InGameOverlayWidget::sendCurrentMessage);
         inputLayout->addWidget(_msgInput);
 
-        auto *sendBtn = new QPushButton("➤", chatArea);
-        sendBtn->setFixedSize(34, 34);
+        auto *sendBtn = new QPushButton("➤", _inputContainer);
+        sendBtn->setFixedSize(38, 38);
         sendBtn->setCursor(Qt::PointingHandCursor);
-        sendBtn->setStyleSheet("QPushButton { background: #0284C7; color: #FFFFFF; border: none; border-radius: 17px; font-size: 14px; font-weight: bold; } QPushButton:hover { background: #0369A1; }");
+        sendBtn->setStyleSheet("QPushButton { background: #0284C7; color: #FFFFFF; border: none; border-radius: 19px; font-size: 15px; font-weight: bold; } QPushButton:hover { background: #0369A1; }");
         connect(sendBtn, &QPushButton::clicked, this, &InGameOverlayWidget::sendCurrentMessage);
         inputLayout->addWidget(sendBtn);
 
-        chatLayout->addLayout(inputLayout);
+        chatLayout->addWidget(_inputContainer);
 
         mainSplitter->addWidget(chatArea);
         rootLayout->addLayout(mainSplitter);
@@ -519,6 +604,8 @@ private:
     QLabel *_chatHeaderAvatar = nullptr;
     QLabel *_chatHeaderName = nullptr;
     QLabel *_chatHeaderStatus = nullptr;
+    QWidget *_inputContainer = nullptr;
+    QWidget *_channelBanner = nullptr;
     QLineEdit *_msgInput = nullptr;
 };
 
