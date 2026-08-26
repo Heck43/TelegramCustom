@@ -21,7 +21,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
-#include "ui/widgets/labels.h"
 #include "ui/layers/generic_box.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
@@ -134,47 +133,41 @@ const auto kMeta = BuildHelper({
 			builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
 				box->setTitle(rpl::single(u"Игры для оверлея"_q));
 
-				box->addRow(object_ptr<Ui::FlatLabel>(
-					box,
-					rpl::single(u"Оверлей (Shift + ~) открывается поверх игр (Minecraft OpenGL, CS2, Dota 2 и др.):"_q),
-					st::boxLabel));
+				const auto layout = box->verticalLayout();
 
-				const auto allCheck = box->addRow(object_ptr<Ui::Checkbox>(
+				Ui::AddDividerText(layout, rpl::single(u"Оверлей (Shift + ~) открывается поверх игр (Minecraft OpenGL, CS2, Dota 2 и др.):"_q));
+
+				const auto allCheck = layout->add(object_ptr<Ui::Checkbox>(
 					box,
 					u"Работать поверх всех игр и приложений"_q,
 					CustomFeatures::GetConfig().overlayAllGames,
-					st::defaultBoxCheckbox));
+					st::defaultCheckbox));
 				allCheck->checkedChanges() | rpl::on_next([=](bool checked) {
 					CustomFeatures::GetConfig().overlayAllGames = checked;
 					CustomFeatures::GetConfig().save();
 				}, box->lifetime());
 
-				Ui::AddDivider(box->verticalLayout());
-				Ui::AddSubsectionTitle(box->verticalLayout(), rpl::single(u"Сохраненные игры"_q));
+				Ui::AddSkip(layout);
+				Ui::AddSubsectionTitle(layout, rpl::single(u"Сохраненные игры"_q));
 
 				for (const auto &game : CustomFeatures::GetConfig().overlayAllowedGames) {
-					box->addRow(object_ptr<Ui::FlatLabel>(
-						box,
-						rpl::single(u"🎮 " + game),
-						st::boxLabel));
+					Ui::AddDividerText(layout, rpl::single(QString(u"🎮 ") + game));
 				}
 
-				Ui::AddDivider(box->verticalLayout());
-				Ui::AddSubsectionTitle(box->verticalLayout(), rpl::single(u"Добавить из запущенных игр"_q));
+				Ui::AddSkip(layout);
+				Ui::AddSubsectionTitle(layout, rpl::single(u"Добавить из запущенных игр"_q));
 
 				const auto running = CustomFeatures::GetRunningUserApps();
 				if (running.isEmpty()) {
-					box->addRow(object_ptr<Ui::FlatLabel>(
-						box,
-						rpl::single(u"Запущенных пользовательских окон не найдено"_q),
-						st::boxLabel));
+					Ui::AddDividerText(layout, rpl::single(u"Запущенных пользовательских окон не найдено"_q));
 				} else {
 					for (const auto &app : running) {
 						const bool already = CustomFeatures::GetConfig().overlayAllowedGames.contains(app.exeName, Qt::CaseInsensitive);
-						auto btn = box->addRow(object_ptr<Ui::SettingsButton>(
+						const QString itemTitle = (already ? QString(u"✓ ") : QString(u"+ ")) + app.windowTitle + QString(u" (") + app.exeName + QString(u")");
+						const auto btn = layout->add(object_ptr<Ui::SettingsButton>(
 							box,
-							rpl::single((already ? u"✓ " : u"+ ") + app.windowTitle + u" (" + app.exeName + u")"),
-							st::settingsButton));
+							rpl::single(itemTitle),
+							st::settingsButtonNoIcon));
 						btn->setClickedCallback([=] {
 							if (!CustomFeatures::GetConfig().overlayAllowedGames.contains(app.exeName, Qt::CaseInsensitive)) {
 								CustomFeatures::GetConfig().overlayAllowedGames.append(app.exeName);
