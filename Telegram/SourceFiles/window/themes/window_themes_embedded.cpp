@@ -188,25 +188,50 @@ style::colorizer ColorizerFrom(
 
 std::optional<QColor> SystemAccentColor() {
 #ifdef Q_OS_WIN
-	// 1. Читаем актуальный акцентный цвет Windows 10/11 из реестра DWM (включая цвет от Wallpaper Engine)
-	DWORD color = 0;
-	DWORD size = sizeof(color);
-	if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", L"AccentColor", RRF_RT_REG_DWORD, nullptr, &color, &size) == ERROR_SUCCESS) {
-		int r = (color & 0x000000FF);
-		int g = (color & 0x0000FF00) >> 8;
-		int b = (color & 0x00FF0000) >> 16;
-		if (r != 0 || g != 0 || b != 0) {
-			return QColor(r, g, b);
-		}
-	}
-	// 2. Резервный способ через DwmGetColorizationColor
+	// 1. DwmGetColorizationColor (DWM API - Windows 10 / 11)
 	DWORD colorization = 0;
 	BOOL opaque = FALSE;
-	if (SUCCEEDED(DwmGetColorizationColor(&colorization, &opaque))) {
+	if (SUCCEEDED(DwmGetColorizationColor(&colorization, &opaque)) && colorization != 0) {
 		int r = (colorization >> 16) & 0xFF;
 		int g = (colorization >> 8) & 0xFF;
 		int b = colorization & 0xFF;
-		if (r != 0 || g != 0 || b != 0) {
+		if (r > 0 || g > 0 || b > 0) {
+			return QColor(r, g, b);
+		}
+	}
+
+	// 2. Registry AccentColor (ABGR)
+	DWORD accent = 0;
+	DWORD size = sizeof(accent);
+	if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", L"AccentColor", RRF_RT_REG_DWORD, nullptr, &accent, &size) == ERROR_SUCCESS && accent != 0) {
+		int r = (accent & 0x000000FF);
+		int g = (accent & 0x0000FF00) >> 8;
+		int b = (accent & 0x00FF0000) >> 16;
+		if (r > 0 || g > 0 || b > 0) {
+			return QColor(r, g, b);
+		}
+	}
+
+	// 3. Registry ColorizationColor (ARGB)
+	DWORD colorizationReg = 0;
+	size = sizeof(colorizationReg);
+	if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", L"ColorizationColor", RRF_RT_REG_DWORD, nullptr, &colorizationReg, &size) == ERROR_SUCCESS && colorizationReg != 0) {
+		int r = (colorizationReg >> 16) & 0xFF;
+		int g = (colorizationReg >> 8) & 0xFF;
+		int b = colorizationReg & 0xFF;
+		if (r > 0 || g > 0 || b > 0) {
+			return QColor(r, g, b);
+		}
+	}
+
+	// 4. Registry AccentPalette (Binary RGBA)
+	BYTE palette[32] = { 0 };
+	size = sizeof(palette);
+	if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Accent", L"AccentPalette", RRF_RT_REG_BINARY, nullptr, palette, &size) == ERROR_SUCCESS) {
+		int r = palette[0];
+		int g = palette[1];
+		int b = palette[2];
+		if (r > 0 || g > 0 || b > 0) {
 			return QColor(r, g, b);
 		}
 	}

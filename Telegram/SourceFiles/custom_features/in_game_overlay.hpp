@@ -36,7 +36,6 @@ inline QVector<RunningAppInfo> GetRunningUserApps() {
             return TRUE;
         }
 
-        // Проверяем наличие заголовка
         WCHAR title[256] = { 0 };
         int len = GetWindowTextW(hwnd, title, 256);
         if (len <= 0) {
@@ -60,14 +59,13 @@ inline QVector<RunningAppInfo> GetRunningUserApps() {
             QString exe = QFileInfo(QString::fromWCharArray(path)).fileName();
             QString winTitle = QString::fromWCharArray(title).trimmed();
 
-            // Отсеиваем системный мусор
             const QString lowerExe = exe.toLower();
             static const QStringList kIgnoreList = {
                 "explorer.exe", "svchost.exe", "dwm.exe", "taskhostw.exe",
                 "runtimebroker.exe", "searchhost.exe", "shellexperiencehost.exe",
                 "telegram.exe", "textinputhost.exe", "applicationframehost.exe",
                 "systemsettings.exe", "conhost.exe", "cmd.exe", "powershell.exe",
-                "nvidia share.exe", "devenv.exe"
+                "nvidia share.exe", "devenv.exe", "lockapp.exe"
             };
 
             if (!kIgnoreList.contains(lowerExe) && !winTitle.isEmpty()) {
@@ -97,7 +95,7 @@ public:
         : QWidget(parent, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool) {
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
-        resize(440, 580);
+        resize(460, 520);
         setupUI();
     }
 
@@ -117,10 +115,10 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        // Полупрозрачный темный фон для любых игр (OpenGL / DirectX / Vulkan)
-        QColor bgColor(18, 22, 30, 238);
+        // Полупрозрачный темный фон
+        QColor bgColor(18, 22, 30, 245);
         p.setBrush(bgColor);
-        p.setPen(QPen(QColor(255, 255, 255, 35), 1.5));
+        p.setPen(QPen(QColor(255, 255, 255, 45), 1.5));
         p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 16, 16);
     }
 
@@ -141,17 +139,17 @@ protected:
 private:
     void setupUI() {
         auto *mainLayout = new QVBoxLayout(this);
-        mainLayout->setContentsMargins(16, 16, 16, 16);
-        mainLayout->setSpacing(12);
+        mainLayout->setContentsMargins(18, 18, 18, 18);
+        mainLayout->setSpacing(14);
 
         // Шапка оверлея
         auto *headerLayout = new QHBoxLayout();
         auto *titleLabel = new QLabel("🎮 Telegram Game Overlay", this);
-        titleLabel->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 14px;");
+        titleLabel->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 15px;");
 
         auto *closeBtn = new QPushButton("✕", this);
-        closeBtn->setFixedSize(24, 24);
-        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: transparent; border: none; font-size: 14px; font-weight: bold; border-radius: 12px; } QPushButton:hover { color: #FFFFFF; background: rgba(255,255,255,0.15); }");
+        closeBtn->setFixedSize(26, 26);
+        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: rgba(255,255,255,0.08); border: none; font-size: 14px; font-weight: bold; border-radius: 13px; } QPushButton:hover { color: #FFFFFF; background: rgba(255,255,255,0.2); }");
         connect(closeBtn, &QPushButton::clicked, this, &InGameOverlayWidget::hide);
 
         headerLayout->addWidget(titleLabel);
@@ -159,19 +157,20 @@ private:
         headerLayout->addWidget(closeBtn);
         mainLayout->addLayout(headerLayout);
 
-        // Подсказка горячей клавиши
-        auto *hintLabel = new QLabel("Вызов: Shift + ~ (Тильда) • Поддержка OpenGL / DirectX / Vulkan", this);
-        hintLabel->setStyleSheet("color: #7A8B9E; font-size: 11px;");
+        // Подсказка горячих клавиш
+        auto *hintLabel = new QLabel("Горячие клавиши: Shift + ~ | Shift + F11 | Ctrl + Shift + O", this);
+        hintLabel->setStyleSheet("color: #8E9BAE; font-size: 11px;");
         mainLayout->addWidget(hintLabel);
 
         // Панель статуса
         auto *contentBox = new QWidget(this);
-        contentBox->setStyleSheet("background: rgba(0, 0, 0, 0.35); border-radius: 12px;");
+        contentBox->setStyleSheet("background: rgba(0, 0, 0, 0.4); border-radius: 12px;");
         auto *contentLayout = new QVBoxLayout(contentBox);
-        contentLayout->setContentsMargins(14, 14, 14, 14);
+        contentLayout->setContentsMargins(16, 16, 16, 16);
+        contentLayout->setSpacing(10);
 
-        auto *chatInfo = new QLabel("💬 Оверлей активен поверх ваших игр.\n\nВы можете перетаскивать это окно за шапку и общаться не сворачивая игру.", contentBox);
-        chatInfo->setStyleSheet("color: #D1D5DB; font-size: 12px; line-height: 1.5;");
+        auto *chatInfo = new QLabel("💬 Оверлей успешно активен поверх вашей игры.\n\nВы можете свободно перемещать это окно мышкой по экрану во время игры.", contentBox);
+        chatInfo->setStyleSheet("color: #E2E8F0; font-size: 12px; line-height: 1.5;");
         chatInfo->setWordWrap(true);
         contentLayout->addWidget(chatInfo);
         contentLayout->addStretch();
@@ -197,12 +196,19 @@ public:
     void updateState() {
         if (!_hwnd) return;
         if (GetConfig().enableInGameOverlay) {
-            RegisterHotKey(_hwnd, 0x5447, MOD_SHIFT, VK_OEM_3);
+            // Регистрируем несколько альтернативных горячих клавиш для надежности
+            RegisterHotKey(_hwnd, 0x5447, MOD_SHIFT, VK_OEM_3);               // Shift + ~ (Тильда)
+            RegisterHotKey(_hwnd, 0x5448, MOD_SHIFT, VK_F11);                 // Shift + F11
+            RegisterHotKey(_hwnd, 0x5449, MOD_CONTROL | MOD_SHIFT, 'O');      // Ctrl + Shift + O
+            RegisterHotKey(_hwnd, 0x544A, MOD_ALT, VK_OEM_3);                 // Alt + ~
             if (!_overlayWidget) {
                 _overlayWidget = new InGameOverlayWidget();
             }
         } else {
             UnregisterHotKey(_hwnd, 0x5447);
+            UnregisterHotKey(_hwnd, 0x5448);
+            UnregisterHotKey(_hwnd, 0x5449);
+            UnregisterHotKey(_hwnd, 0x544A);
             if (_overlayWidget) {
                 _overlayWidget->hide();
             }
@@ -210,11 +216,13 @@ public:
     }
 
     void handleHotKey(WPARAM wParam) {
-        if (wParam == 0x5447 && GetConfig().enableInGameOverlay) {
-            if (isTargetGameActive()) {
-                if (!_overlayWidget) {
-                    _overlayWidget = new InGameOverlayWidget();
-                }
+        if (wParam >= 0x5447 && wParam <= 0x544A && GetConfig().enableInGameOverlay) {
+            if (!_overlayWidget) {
+                _overlayWidget = new InGameOverlayWidget();
+            }
+            if (_overlayWidget->isVisible()) {
+                _overlayWidget->hide();
+            } else if (isTargetGameActive()) {
                 _overlayWidget->toggleVisibility();
             }
         }
@@ -237,6 +245,10 @@ public:
         GetWindowThreadProcessId(foreground, &pid);
         if (!pid) return true;
 
+        if (pid == GetCurrentProcessId()) {
+            return true;
+        }
+
         HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
         if (!hProc) return true;
 
@@ -248,7 +260,7 @@ public:
             CloseHandle(hProc);
 
             for (const auto &item : allowed) {
-                if (exeName.compare(item, Qt::CaseInsensitive) == 0) {
+                if (exeName.compare(item, Qt::CaseInsensitive) == 0 || exeName.contains(item, Qt::CaseInsensitive)) {
                     return true;
                 }
             }
@@ -261,6 +273,9 @@ public:
     void cleanup() {
         if (_hwnd) {
             UnregisterHotKey(_hwnd, 0x5447);
+            UnregisterHotKey(_hwnd, 0x5448);
+            UnregisterHotKey(_hwnd, 0x5449);
+            UnregisterHotKey(_hwnd, 0x544A);
             _hwnd = nullptr;
         }
         if (_overlayWidget) {

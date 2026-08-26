@@ -17,7 +17,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "main/main_domain.h"
 #include "storage/storage_domain.h"
+#include "storage/localstorage.h"
 #include "settings/sections/settings_local_passcode.h"
+#include "window/themes/window_theme.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
@@ -135,7 +137,7 @@ const auto kMeta = BuildHelper({
 
 				const auto layout = box->verticalLayout();
 
-				Ui::AddDividerText(layout, rpl::single(u"Оверлей (Shift + ~) открывается поверх игр (Minecraft OpenGL, CS2, Dota 2 и др.):"_q));
+				Ui::AddDividerText(layout, rpl::single(u"Оверлей открывается по горячим клавишам Shift + ~ или Shift + F11 поверх игр:"_q));
 
 				const auto allCheck = layout->add(object_ptr<Ui::Checkbox>(
 					box,
@@ -148,10 +150,22 @@ const auto kMeta = BuildHelper({
 				}, box->lifetime());
 
 				Ui::AddSkip(layout);
-				Ui::AddSubsectionTitle(layout, rpl::single(u"Сохраненные игры"_q));
+				Ui::AddSubsectionTitle(layout, rpl::single(u"Сохраненные игры (нажмите для удаления)"_q));
 
-				for (const auto &game : CustomFeatures::GetConfig().overlayAllowedGames) {
-					Ui::AddDividerText(layout, rpl::single(u"🎮 "_q + game));
+				if (CustomFeatures::GetConfig().overlayAllowedGames.isEmpty()) {
+					Ui::AddDividerText(layout, rpl::single(u"Список пуст (оверлей работает везде)"_q));
+				} else {
+					for (const auto &game : CustomFeatures::GetConfig().overlayAllowedGames) {
+						const auto btn = layout->add(object_ptr<Ui::SettingsButton>(
+							box,
+							rpl::single(u"🎮 "_q + game + u"   [✕ Удалить]"_q),
+							st::settingsButtonNoIcon));
+						btn->setClickedCallback([=] {
+							CustomFeatures::GetConfig().overlayAllowedGames.removeAll(game);
+							CustomFeatures::GetConfig().save();
+							box->closeBox();
+						});
+					}
 				}
 
 				Ui::AddSkip(layout);
@@ -236,6 +250,13 @@ const auto kMeta = BuildHelper({
 		) | rpl::on_next([=](bool checked) {
 			CustomFeatures::GetConfig().syncWindowsAccentColor = checked;
 			CustomFeatures::GetConfig().save();
+			Core::App().settings().setSystemAccentColorEnabled(checked);
+			Local::writeSettings();
+			const auto path = Window::Theme::Background()->themeObject().pathAbsolute;
+			if (!path.isEmpty()) {
+				Window::Theme::Apply(path);
+				Window::Theme::KeepApplied();
+			}
 		}, check->lifetime());
 	}
 
