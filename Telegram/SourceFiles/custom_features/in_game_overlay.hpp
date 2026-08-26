@@ -7,9 +7,11 @@
 #include <psapi.h>
 #include <QWidget>
 #include <QLabel>
+#include <QLineEdit>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QPainter>
 #include <QMouseEvent>
 #include <QVector>
@@ -97,7 +99,7 @@ public:
         : QWidget(parent, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool) {
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
-        resize(460, 520);
+        resize(680, 480);
         setupUI();
     }
 
@@ -117,11 +119,11 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        // Полупрозрачный темный фон
-        QColor bgColor(18, 22, 30, 245);
+        // Более глубокий затемненный полупрозрачный фон для удобства в играх
+        QColor bgColor(9, 12, 17, 246);
         p.setBrush(bgColor);
-        p.setPen(QPen(QColor(255, 255, 255, 45), 1.5));
-        p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 16, 16);
+        p.setPen(QPen(QColor(255, 255, 255, 30), 1.2));
+        p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 18, 18);
     }
 
     void mousePressEvent(QMouseEvent *e) override {
@@ -138,46 +140,216 @@ protected:
         }
     }
 
+    void keyPressEvent(QKeyEvent *e) override {
+        if (e->key() == Qt::Key_Escape) {
+            hide();
+            e->accept();
+        } else {
+            QWidget::keyPressEvent(e);
+        }
+    }
+
 private:
     void setupUI() {
-        auto *mainLayout = new QVBoxLayout(this);
-        mainLayout->setContentsMargins(18, 18, 18, 18);
-        mainLayout->setSpacing(14);
+        auto *rootLayout = new QVBoxLayout(this);
+        rootLayout->setContentsMargins(14, 12, 14, 12);
+        rootLayout->setSpacing(10);
 
-        // Шапка оверлея
+        // 1. Верхняя панель (Header / Title bar)
         auto *headerLayout = new QHBoxLayout();
-        auto *titleLabel = new QLabel("🎮 Telegram Game Overlay", this);
-        titleLabel->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 15px;");
+        headerLayout->setSpacing(8);
+
+        auto *appIconLabel = new QLabel("🎮", this);
+        appIconLabel->setStyleSheet("font-size: 16px;");
+
+        auto *titleLabel = new QLabel("Telegram Overlay", this);
+        titleLabel->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 14px; font-family: 'Segoe UI', sans-serif;");
+
+        auto *onlineDot = new QLabel("● В сети", this);
+        onlineDot->setStyleSheet("color: #22C55E; font-size: 11px; font-weight: 600; margin-left: 4px;");
+
+        headerLayout->addWidget(appIconLabel);
+        headerLayout->addWidget(titleLabel);
+        headerLayout->addWidget(onlineDot);
+        headerLayout->addStretch();
+
+        auto *hotkeyHint = new QLabel("Shift + ~", this);
+        hotkeyHint->setStyleSheet("color: #717A8C; font-size: 11px; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 6px;");
+        headerLayout->addWidget(hotkeyHint);
 
         auto *closeBtn = new QPushButton("✕", this);
-        closeBtn->setFixedSize(26, 26);
-        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: rgba(255,255,255,0.08); border: none; font-size: 14px; font-weight: bold; border-radius: 13px; } QPushButton:hover { color: #FFFFFF; background: rgba(255,255,255,0.2); }");
+        closeBtn->setFixedSize(24, 24);
+        closeBtn->setCursor(Qt::PointingHandCursor);
+        closeBtn->setStyleSheet("QPushButton { color: #8E94A0; background: rgba(255,255,255,0.08); border: none; font-size: 13px; font-weight: bold; border-radius: 12px; } QPushButton:hover { color: #FFFFFF; background: rgba(239,68,68,0.7); }");
         connect(closeBtn, &QPushButton::clicked, this, &InGameOverlayWidget::hide);
-
-        headerLayout->addWidget(titleLabel);
-        headerLayout->addStretch();
         headerLayout->addWidget(closeBtn);
-        mainLayout->addLayout(headerLayout);
 
-        // Подсказка горячих клавиш
-        auto *hintLabel = new QLabel("Горячие клавиши: Shift + ~ | Shift + F11 | Ctrl + Shift + O", this);
-        hintLabel->setStyleSheet("color: #8E9BAE; font-size: 11px;");
-        mainLayout->addWidget(hintLabel);
+        rootLayout->addLayout(headerLayout);
 
-        // Панель статуса
-        auto *contentBox = new QWidget(this);
-        contentBox->setStyleSheet("background: rgba(0, 0, 0, 0.4); border-radius: 12px;");
-        auto *contentLayout = new QVBoxLayout(contentBox);
-        contentLayout->setContentsMargins(16, 16, 16, 16);
-        contentLayout->setSpacing(10);
+        // 2. Основная рабочая область (Split: Список диалогов + Окно текущего чата)
+        auto *mainSplitter = new QHBoxLayout();
+        mainSplitter->setSpacing(10);
 
-        auto *chatInfo = new QLabel("💬 Оверлей успешно активен поверх вашей игры.\n\nВы можете свободно перемещать это окно мышкой по экрану во время игры.", contentBox);
-        chatInfo->setStyleSheet("color: #E2E8F0; font-size: 12px; line-height: 1.5;");
-        chatInfo->setWordWrap(true);
-        contentLayout->addWidget(chatInfo);
-        contentLayout->addStretch();
+        // --- Левая колонка: Список чатов (Ширина ~210px) ---
+        auto *leftSidebar = new QWidget(this);
+        leftSidebar->setFixedWidth(210);
+        leftSidebar->setStyleSheet("background: rgba(16, 21, 30, 0.7); border-radius: 12px;");
+        auto *leftLayout = new QVBoxLayout(leftSidebar);
+        leftLayout->setContentsMargins(8, 10, 8, 10);
+        leftLayout->setSpacing(6);
 
-        mainLayout->addWidget(contentBox);
+        auto *searchBar = new QLineEdit(leftSidebar);
+        searchBar->setPlaceholderText("🔍 Поиск диалогов...");
+        searchBar->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.06); color: #E2E8F0; border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; } QLineEdit:focus { background: rgba(255,255,255,0.1); }");
+        leftLayout->addWidget(searchBar);
+
+        // Список чатов (макет элементов)
+        auto createChatItem = [leftSidebar](const QString &avatarText, const QString &avatarColor, const QString &name, const QString &preview, const QString &time, const QString &badge) {
+            auto *item = new QWidget(leftSidebar);
+            item->setCursor(Qt::PointingHandCursor);
+            item->setStyleSheet(badge.isEmpty() ? "QWidget:hover { background: rgba(255,255,255,0.05); border-radius: 8px; }" : "QWidget { background: rgba(255,255,255,0.08); border-radius: 8px; }");
+            auto *itemLayout = new QHBoxLayout(item);
+            itemLayout->setContentsMargins(6, 6, 6, 6);
+            itemLayout->setSpacing(8);
+
+            auto *avatar = new QLabel(avatarText, item);
+            avatar->setFixedSize(32, 32);
+            avatar->setAlignment(Qt::AlignCenter);
+            avatar->setStyleSheet(QString("background: %1; color: #FFFFFF; font-weight: bold; border-radius: 16px; font-size: 13px;").arg(avatarColor));
+            itemLayout->addWidget(avatar);
+
+            auto *infoLayout = new QVBoxLayout();
+            infoLayout->setSpacing(2);
+            auto *topRow = new QHBoxLayout();
+            auto *nameLabel = new QLabel(name, item);
+            nameLabel->setStyleSheet("color: #F8FAFC; font-weight: 600; font-size: 12px;");
+            auto *timeLabel = new QLabel(time, item);
+            timeLabel->setStyleSheet("color: #64748B; font-size: 10px;");
+            topRow->addWidget(nameLabel);
+            topRow->addStretch();
+            topRow->addWidget(timeLabel);
+
+            auto *bottomRow = new QHBoxLayout();
+            auto *msgLabel = new QLabel(preview, item);
+            msgLabel->setStyleSheet("color: #94A3B8; font-size: 11px;");
+            bottomRow->addWidget(msgLabel);
+            bottomRow->addStretch();
+            if (!badge.isEmpty()) {
+                auto *badgeLabel = new QLabel(badge, item);
+                badgeLabel->setStyleSheet("background: #3B82F6; color: #FFFFFF; font-size: 9px; font-weight: bold; border-radius: 7px; padding: 1px 5px;");
+                bottomRow->addWidget(badgeLabel);
+            }
+
+            infoLayout->addLayout(topRow);
+            infoLayout->addLayout(bottomRow);
+            itemLayout->addLayout(infoLayout);
+
+            return item;
+        };
+
+        leftLayout->addWidget(createChatItem("A", "#E11D48", "Astartes", "Да все в порядке солнце <3", "16:27", "2"));
+        leftLayout->addWidget(createChatItem("D", "#6366F1", "Discord & Game", "Го в катку вечером!", "15:40", ""));
+        leftLayout->addWidget(createChatItem("M", "#10B981", "Музыка & Chill", "🎵 Отличный плейлист", "Вчера", ""));
+        leftLayout->addWidget(createChatItem("T", "#0284C7", "Telegram Desktop", "Обновление готово ✓", "24 авг", ""));
+        leftLayout->addStretch();
+
+        mainSplitter->addWidget(leftSidebar);
+
+        // --- Правая колонка: Окно активного чата ---
+        auto *chatArea = new QWidget(this);
+        chatArea->setStyleSheet("background: rgba(16, 21, 30, 0.7); border-radius: 12px;");
+        auto *chatLayout = new QVBoxLayout(chatArea);
+        chatLayout->setContentsMargins(12, 10, 12, 10);
+        chatLayout->setSpacing(8);
+
+        // Шапка чата
+        auto *chatHeader = new QHBoxLayout();
+        auto *chatAvatar = new QLabel("A", chatArea);
+        chatAvatar->setFixedSize(28, 28);
+        chatAvatar->setAlignment(Qt::AlignCenter);
+        chatAvatar->setStyleSheet("background: #E11D48; color: #FFFFFF; font-weight: bold; border-radius: 14px; font-size: 12px;");
+        
+        auto *chatTitleLayout = new QVBoxLayout();
+        chatTitleLayout->setSpacing(1);
+        auto *chatName = new QLabel("Astartes", chatArea);
+        chatName->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 12px;");
+        auto *chatStatus = new QLabel("в сети (печатает...)", chatArea);
+        chatStatus->setStyleSheet("color: #38BDF8; font-size: 10px;");
+        chatTitleLayout->addWidget(chatName);
+        chatTitleLayout->addWidget(chatStatus);
+
+        chatHeader->addWidget(chatAvatar);
+        chatHeader->addLayout(chatTitleLayout);
+        chatHeader->addStretch();
+
+        auto *callBtn = new QPushButton("📞", chatArea);
+        callBtn->setFixedSize(26, 26);
+        callBtn->setCursor(Qt::PointingHandCursor);
+        callBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.07); color: #FFFFFF; border: none; border-radius: 13px; font-size: 11px; } QPushButton:hover { background: rgba(255,255,255,0.15); }");
+        chatHeader->addWidget(callBtn);
+
+        chatLayout->addLayout(chatHeader);
+
+        // Область сообщений (макет пузырей)
+        auto *msgContainer = new QWidget(chatArea);
+        msgContainer->setStyleSheet("background: rgba(0, 0, 0, 0.25); border-radius: 8px;");
+        auto *msgListLayout = new QVBoxLayout(msgContainer);
+        msgListLayout->setContentsMargins(10, 10, 10, 10);
+        msgListLayout->setSpacing(8);
+
+        auto *msgIn1 = new QLabel("Ты то как мой дорогой в целом? Что делаешь? 💕", msgContainer);
+        msgIn1->setStyleSheet("background: rgba(30, 41, 59, 0.85); color: #F1F5F9; border-radius: 10px; padding: 7px 12px; font-size: 11px;");
+        msgListLayout->addWidget(msgIn1, 0, Qt::AlignLeft);
+
+        auto *msgOut1 = new QLabel("Да все в порядке солнце <3\nПока что вот тоже отдыхаю, играю :3  ✓✓", msgContainer);
+        msgOut1->setStyleSheet("background: rgba(2, 132, 199, 0.7); color: #FFFFFF; border-radius: 10px; padding: 7px 12px; font-size: 11px;");
+        msgListLayout->addWidget(msgOut1, 0, Qt::AlignRight);
+
+        auto *msgIn2 = new QLabel("О, ты в оверлее Telegram? Выглядит очень круто! ✨", msgContainer);
+        msgIn2->setStyleSheet("background: rgba(30, 41, 59, 0.85); color: #F1F5F9; border-radius: 10px; padding: 7px 12px; font-size: 11px;");
+        msgListLayout->addWidget(msgIn2, 0, Qt::AlignLeft);
+
+        msgListLayout->addStretch();
+        chatLayout->addWidget(msgContainer);
+
+        // Поле ввода сообщения
+        auto *inputLayout = new QHBoxLayout();
+        inputLayout->setSpacing(6);
+
+        auto *attachBtn = new QPushButton("📎", chatArea);
+        attachBtn->setFixedSize(28, 28);
+        attachBtn->setCursor(Qt::PointingHandCursor);
+        attachBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.06); color: #94A3B8; border: none; border-radius: 14px; font-size: 12px; } QPushButton:hover { color: #FFFFFF; background: rgba(255,255,255,0.12); }");
+        inputLayout->addWidget(attachBtn);
+
+        auto *msgInput = new QLineEdit(chatArea);
+        msgInput->setPlaceholderText("Написать сообщение... (Enter для отправки)");
+        msgInput->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.07); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 5px 12px; font-size: 11px; } QLineEdit:focus { border: 1px solid rgba(56, 189, 248, 0.6); }");
+        inputLayout->addWidget(msgInput);
+
+        auto *emojiBtn = new QPushButton("😊", chatArea);
+        emojiBtn->setFixedSize(28, 28);
+        emojiBtn->setCursor(Qt::PointingHandCursor);
+        emojiBtn->setStyleSheet("QPushButton { background: rgba(255,255,255,0.06); color: #94A3B8; border: none; border-radius: 14px; font-size: 12px; } QPushButton:hover { color: #FFFFFF; background: rgba(255,255,255,0.12); }");
+        inputLayout->addWidget(emojiBtn);
+
+        auto *sendBtn = new QPushButton("➤", chatArea);
+        sendBtn->setFixedSize(28, 28);
+        sendBtn->setCursor(Qt::PointingHandCursor);
+        sendBtn->setStyleSheet("QPushButton { background: #0284C7; color: #FFFFFF; border: none; border-radius: 14px; font-size: 12px; font-weight: bold; } QPushButton:hover { background: #0369A1; }");
+        inputLayout->addWidget(sendBtn);
+
+        chatLayout->addLayout(inputLayout);
+
+        mainSplitter->addWidget(chatArea);
+
+        rootLayout->addLayout(mainSplitter);
+
+        // 3. Подвал с подсказками управления
+        auto *footerLabel = new QLabel("⌨ Shift + ~ | Shift + F11 | Ctrl + Shift + O | Esc чтобы закрыть  •  Перетаскивайте окно мышью", this);
+        footerLabel->setAlignment(Qt::AlignCenter);
+        footerLabel->setStyleSheet("color: #64748B; font-size: 10px; padding-top: 2px;");
+        rootLayout->addWidget(footerLabel);
     }
 
     QPoint _dragPos;
