@@ -39,6 +39,22 @@ jobs:
           Write-Host "Free disk space after cleanup:"
           Get-PSDrive C, D -ErrorAction SilentlyContinue | Select-Object Name, @{Name="FreeGB";Expression={[math]::Round($_.Free/1GB, 2)}}
 
+      - name: Free Disk Space on Runner
+        shell: pwsh
+        run: |
+          Write-Host "Freeing runner disk space..."
+          Remove-Item -Recurse -Force "C:\hostedtoolcache" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Android" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Program Files (x86)\Android" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Users\runneradmin\.dotnet" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\ProgramData\Chocolatey" -ErrorAction SilentlyContinue
+          Get-PSDrive C | Select-Object Name, @{Name="FreeGB";Expression={[math]::Round($_.Free/1GB, 2)}}
+
+      - name: Check initial disk space
+        shell: pwsh
+        run: |
+          Get-PSDrive C, D -ErrorAction SilentlyContinue | Select-Object Name, @{Name="FreeGB";Expression={[math]::Round($_.Free/1GB, 2)}}
+
       - name: Prepare directories
         run: |
           mkdir %userprofile%\TBuild\Libraries
@@ -132,6 +148,8 @@ jobs:
           -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= ^
           -D CMAKE_CXX_FLAGS="/FS" ^
           -D CMAKE_C_FLAGS="/FS" ^
+          -D CMAKE_EXE_LINKER_FLAGS="/DEBUG:NONE /INCREMENTAL:NO" ^
+          -D CMAKE_SHARED_LINKER_FLAGS="/DEBUG:NONE /INCREMENTAL:NO" ^
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF
 
