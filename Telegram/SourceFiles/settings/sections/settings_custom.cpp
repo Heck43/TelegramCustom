@@ -151,7 +151,7 @@ const auto kMeta = BuildHelper({
 				Ui::AddSubsectionTitle(layout, rpl::single(u"Сохраненные игры"_q));
 
 				for (const auto &game : CustomFeatures::GetConfig().overlayAllowedGames) {
-					Ui::AddDividerText(layout, rpl::single(QString(u"🎮 ") + game));
+					Ui::AddDividerText(layout, rpl::single(u"🎮 "_q + game));
 				}
 
 				Ui::AddSkip(layout);
@@ -163,7 +163,7 @@ const auto kMeta = BuildHelper({
 				} else {
 					for (const auto &app : running) {
 						const bool already = CustomFeatures::GetConfig().overlayAllowedGames.contains(app.exeName, Qt::CaseInsensitive);
-						const QString itemTitle = (already ? QString(u"✓ ") : QString(u"+ ")) + app.windowTitle + QString(u" (") + app.exeName + QString(u")");
+						const auto itemTitle = (already ? u"✓ "_q : u"+ "_q) + app.windowTitle + u" ("_q + app.exeName + u")"_q;
 						const auto btn = layout->add(object_ptr<Ui::SettingsButton>(
 							box,
 							rpl::single(itemTitle),
