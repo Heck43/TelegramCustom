@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/zlib_help.h"
 #include "base/unixtime.h"
 #include "base/crc32hash.h"
+#include "base/timer_rpl.h"
 #include "base/never_freed_pointer.h"
 #include "base/qt_signal_producer.h"
 #include "data/data_session.h"
