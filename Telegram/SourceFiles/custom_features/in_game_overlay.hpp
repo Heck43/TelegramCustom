@@ -5,22 +5,24 @@
 #include <windows.h>
 #include <tlhelp32.h>
 #include <psapi.h>
-#include <QWidget>
-#include <QLabel>
-#include <QLineEdit>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QPushButton>
-#include <QScrollArea>
-#include <QPainter>
-#include <QMouseEvent>
-#include <QVector>
-#include <QPair>
-#include <QFileInfo>
+#include <QtWidgets/QWidget>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QScrollArea>
+#include <QtWidgets/QScrollBar>
+#include <QtGui/QPainter>
+#include <QtGui/QMouseEvent>
+#include <QtCore/QVector>
+#include <QtCore/QPair>
+#include <QtCore/QFileInfo>
 #include <QtCore/QTimer>
 #include "crl/crl_on_main.h"
 #include "custom_features/custom_settings.hpp"
 #include "core/application.h"
+#include "main/main_account.h"
 #include "main/main_domain.h"
 #include "main/main_session.h"
 #include "data/data_session.h"
@@ -37,6 +39,13 @@
 #include "api/api_send_progress.h"
 
 namespace CustomFeatures {
+
+inline Main::Session *GetActiveSession() {
+    if (Core::App().domain().started() && Core::App().domain().active().sessionExists()) {
+        return &Core::App().domain().active().session();
+    }
+    return nullptr;
+}
 
 struct RunningAppInfo {
     QString exeName;
@@ -131,7 +140,7 @@ public:
     }
 
     void reloadRealData() {
-        const auto session = Core::App().domain().activeSession();
+        const auto session = GetActiveSession();
         if (!session) return;
 
         // Очищаем текущий список чатов
@@ -144,16 +153,18 @@ public:
         }
 
         History *firstHistory = nullptr;
-        const auto &allRows = session->data().chatsList()->indexed()->all();
-        int count = 0;
-
-        for (const auto &row : allRows) {
-            if (const auto history = row->key().history()) {
-                if (!firstHistory) {
-                    firstHistory = history;
+        if (const auto mainList = session->data().chatsList()) {
+            if (const auto indexed = mainList->indexed()) {
+                int count = 0;
+                for (const auto &row : indexed->all()) {
+                    if (const auto history = row->history()) {
+                        if (!firstHistory) {
+                            firstHistory = history;
+                        }
+                        addChatRowWidget(history);
+                        if (++count >= 20) break;
+                    }
                 }
-                addChatRowWidget(history);
-                if (++count >= 20) break;
             }
         }
 
@@ -210,7 +221,7 @@ public:
         const QString text = _msgInput->text().trimmed();
         if (text.isEmpty()) return;
 
-        const auto session = Core::App().domain().activeSession();
+        const auto session = GetActiveSession();
         if (!session) return;
 
         auto message = Api::MessageToSend(Api::SendAction(_activeHistory));
