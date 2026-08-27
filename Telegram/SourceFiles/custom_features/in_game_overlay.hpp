@@ -50,6 +50,7 @@
 #include "data/data_document_media.h"
 #include "data/data_web_page.h"
 #include "data/data_file_origin.h"
+#include "data/data_messages.h"
 #include "ui/image/image.h"
 #include <QtGui/QPainterPath>
 
@@ -82,6 +83,30 @@ inline QPixmap GeneratePeerAvatarPixmap(PeerData *peer, int size) {
     }
     pix.setDevicePixelRatio(2.0);
     return pix;
+}
+
+inline QString FormatPeerStatusText(PeerData *peer, bool &outIsOnline) {
+    outIsOnline = false;
+    if (!peer) return QString();
+    const auto now = base::unixtime::now();
+    if (const auto user = peer->asUser()) {
+        if (user->isBot()) {
+            return "🤖 бот";
+        } else if (user->isSupport()) {
+            return "служба поддержки";
+        }
+        outIsOnline = Data::OnlineTextActive(user, now);
+        const auto text = Data::OnlineText(user, now);
+        return !text.isEmpty() ? text : (outIsOnline ? "в сети" : "был(а) недавно");
+    } else if (const auto channel = peer->asChannel()) {
+        if (channel->isMegagroup()) {
+            return channel->membersCount() > 0 ? QString("👥 %1 участников").arg(channel->membersCount()) : "👥 группа";
+        }
+        return channel->membersCount() > 0 ? QString("📢 %1 подписчиков").arg(channel->membersCount()) : "📢 канал";
+    } else if (const auto chat = peer->asChat()) {
+        return chat->count > 0 ? QString("👥 %1 участников").arg(chat->count) : "👥 группа";
+    }
+    return QString();
 }
 
 inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, int maxH = 200) {
@@ -268,17 +293,28 @@ public:
         setAttribute(Qt::WA_ShowWithoutActivating);
         resize(960, 640);
         setupUI();
+
+        connect(&_autoRefreshTimer, &QTimer::timeout, this, [=] {
+            if (isVisible()) {
+                autoRefreshState();
+            }
+        });
     }
 
     void toggleVisibility() {
         if (isVisible()) {
             hide();
+            _autoRefreshTimer.stop();
         } else {
+            if (const auto session = GetActiveSession()) {
+                session->api().requestDialogs();
+            }
             reloadRealData();
             show();
             raise();
             activateWindow();
             SetWindowPos((HWND)winId(), HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            _autoRefreshTimer.start(2500);
         }
     }
 
@@ -304,7 +340,7 @@ public:
                             firstHistory = history;
                         }
                         addChatRowWidget(history);
-                        if (++count >= 30) break;
+                        if (++count >= 40) break;
                     }
                 }
             }
@@ -321,28 +357,51 @@ public:
         if (!history) return;
         _activeHistory = history;
 
+        if (const auto session = GetActiveSession()) {
+            session->api().requestHistory(history, 0, Data::LoadDirection::Around);
+        }
+
         const QString peerName = history->peer ? history->peer->name() : "Диалог";
         _chatHeaderName->setText(peerName);
         _chatHeaderAvatar->setPixmap(GeneratePeerAvatarPixmap(history->peer, 36));
+
+        updateHeaderStatus();
 
         const bool isChannel = history->peer && history->peer->isChannel() && !history->peer->isMegagroup();
         const bool isGroup = history->peer && (history->peer->isChat() || history->peer->isMegagroup());
 
         if (isChannel) {
-            _chatHeaderStatus->setText("📢 Канал");
             _inputContainer->hide();
             _channelBanner->show();
-        } else if (isGroup) {
-            _chatHeaderStatus->setText("👥 Группа");
-            _inputContainer->show();
-            _channelBanner->hide();
         } else {
-            _chatHeaderStatus->setText("👤 Личные сообщения");
             _inputContainer->show();
             _channelBanner->hide();
         }
 
-        // Очищаем текущие сообщения
+        renderActiveMessages(true);
+
+        QTimer::singleShot(400, [=] {
+            if (isVisible() && _activeHistory == history) {
+                renderActiveMessages(false);
+            }
+        });
+    }
+
+    void updateHeaderStatus() {
+        if (!_activeHistory || !_activeHistory->peer || !_chatHeaderStatus) return;
+        bool isOnline = false;
+        const QString statusText = FormatPeerStatusText(_activeHistory->peer, isOnline);
+        _chatHeaderStatus->setText(statusText);
+        if (isOnline) {
+            _chatHeaderStatus->setStyleSheet("color: #38BDF8; font-weight: 600; font-size: 11px;");
+        } else {
+            _chatHeaderStatus->setStyleSheet("color: #94A3B8; font-size: 11px;");
+        }
+    }
+
+    void renderActiveMessages(bool scrollToBottom = true) {
+        if (!_activeHistory) return;
+
         QLayoutItem *child;
         while ((child = _messagesLayout->takeAt(0)) != nullptr) {
             if (child->widget()) {
@@ -351,20 +410,18 @@ public:
             delete child;
         }
 
-        // Собираем последние сообщения с конца (от новых к старым)
         std::vector<HistoryItem*> recentMessages;
-        for (auto blockIt = history->blocks.rbegin(); blockIt != history->blocks.rend(); ++blockIt) {
+        for (auto blockIt = _activeHistory->blocks.rbegin(); blockIt != _activeHistory->blocks.rend(); ++blockIt) {
             auto *block = blockIt->get();
             for (auto msgIt = block->messages.rbegin(); msgIt != block->messages.rend(); ++msgIt) {
                 if (const auto item = (*msgIt)->data()) {
                     recentMessages.push_back(item);
-                    if (recentMessages.size() >= 45) break;
+                    if (recentMessages.size() >= 50) break;
                 }
             }
-            if (recentMessages.size() >= 45) break;
+            if (recentMessages.size() >= 50) break;
         }
 
-        // Разворачиваем в хронологический порядок (сверху вниз)
         std::reverse(recentMessages.begin(), recentMessages.end());
 
         for (const auto item : recentMessages) {
@@ -377,6 +434,10 @@ public:
                     if (doc->isGifv() || doc->isAnimation()) {
                         isGif = true;
                     }
+                    doc->loadThumbnail(item->fullId());
+                }
+                if (const auto photo = media->photo()) {
+                    photo->load(Data::PhotoSize::Small, item->fullId());
                 }
             }
 
@@ -396,11 +457,32 @@ public:
         }
 
         _messagesLayout->addStretch();
-        QTimer::singleShot(30, [=] {
-            if (_msgScrollArea && _msgScrollArea->verticalScrollBar()) {
-                _msgScrollArea->verticalScrollBar()->setValue(_msgScrollArea->verticalScrollBar()->maximum());
+
+        if (scrollToBottom) {
+            QTimer::singleShot(30, [=] {
+                if (_msgScrollArea && _msgScrollArea->verticalScrollBar()) {
+                    _msgScrollArea->verticalScrollBar()->setValue(_msgScrollArea->verticalScrollBar()->maximum());
+                }
+            });
+        }
+    }
+
+    void autoRefreshState() {
+        const auto session = GetActiveSession();
+        if (!session) return;
+
+        updateHeaderStatus();
+
+        if (_activeHistory) {
+            int count = 0;
+            for (const auto &block : _activeHistory->blocks) {
+                count += block->messages.size();
             }
-        });
+            if (count != _renderedMessagesCount) {
+                _renderedMessagesCount = count;
+                renderActiveMessages(true);
+            }
+        }
     }
 
     void sendCurrentMessage() {
@@ -424,6 +506,21 @@ public:
                 _msgScrollArea->verticalScrollBar()->setValue(_msgScrollArea->verticalScrollBar()->maximum());
             }
         });
+    }
+
+    void filterDialogs(const QString &query) {
+        for (int i = 0; i < _chatListLayout->count(); ++i) {
+            auto *item = _chatListLayout->itemAt(i);
+            if (item && item->widget()) {
+                if (query.isEmpty()) {
+                    item->widget()->show();
+                } else {
+                    const QString title = item->widget()->property("peerName").toString();
+                    const bool match = title.contains(query, Qt::CaseInsensitive);
+                    item->widget()->setVisible(match);
+                }
+            }
+        }
     }
 
 protected:
@@ -467,6 +564,8 @@ private:
 
         const QString name = history->peer->name();
         const int unread = history->unreadCount();
+
+        history->peer->loadUserpic();
 
         QString lastMsg = "...";
         if (const auto last = history->lastMessage()) {
@@ -522,6 +621,7 @@ private:
         });
 
         auto *overlayWrap = new QWidget(_chatListWidget);
+        overlayWrap->setProperty("peerName", name);
         auto *wrapLayout = new QVBoxLayout(overlayWrap);
         wrapLayout->setContentsMargins(0, 0, 0, 0);
         wrapLayout->addWidget(item);
@@ -530,10 +630,15 @@ private:
     }
 
     void addMessageBubble(const QString &text, bool out, const QString &timeStr, const QPixmap &mediaThumb = QPixmap(), bool isGif = false) {
-        auto *bubble = new QWidget(_messagesWidget);
+        auto *rowWidget = new QWidget(_messagesWidget);
+        auto *rowLayout = new QHBoxLayout(rowWidget);
+        rowLayout->setContentsMargins(0, 2, 0, 2);
+        rowLayout->setSpacing(0);
+
+        auto *bubble = new QWidget(rowWidget);
         auto *bubbleLayout = new QVBoxLayout(bubble);
         bubbleLayout->setContentsMargins(10, 8, 10, 8);
-        bubbleLayout->setSpacing(6);
+        bubbleLayout->setSpacing(5);
 
         if (!mediaThumb.isNull()) {
             auto *imageLabel = new QLabel(bubble);
@@ -556,24 +661,31 @@ private:
         if (!text.isEmpty()) {
             auto *msgLabel = new QLabel(text, bubble);
             msgLabel->setWordWrap(true);
-            msgLabel->setStyleSheet("color: #FFFFFF; font-size: 12px; line-height: 1.4;");
+            msgLabel->setMaximumWidth(460);
+            msgLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+            msgLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            msgLabel->setStyleSheet("color: #FFFFFF; font-size: 12px; line-height: 1.4; background: transparent;");
             bubbleLayout->addWidget(msgLabel);
         }
 
         auto *timeLabel = new QLabel(timeStr + (out ? "  ✓✓" : ""), bubble);
         timeLabel->setAlignment(Qt::AlignRight);
-        timeLabel->setStyleSheet(out ? "color: rgba(255,255,255,0.7); font-size: 10px;" : "color: #94A3B8; font-size: 10px;");
+        timeLabel->setStyleSheet(out ? "color: rgba(255,255,255,0.7); font-size: 10px; background: transparent;" : "color: #94A3B8; font-size: 10px; background: transparent;");
         bubbleLayout->addWidget(timeLabel);
 
-        bubble->setMaximumWidth(520);
+        bubble->setMaximumWidth(480);
 
         if (out) {
-            bubble->setStyleSheet("background: #0284C7; border-radius: 14px; margin: 2px 0px;");
-            _messagesLayout->addWidget(bubble, 0, Qt::AlignRight);
+            bubble->setStyleSheet("background: #0284C7; border-radius: 14px;");
+            rowLayout->addStretch();
+            rowLayout->addWidget(bubble);
         } else {
-            bubble->setStyleSheet("background: rgba(30, 41, 59, 0.94); border-radius: 14px; margin: 2px 0px;");
-            _messagesLayout->addWidget(bubble, 0, Qt::AlignLeft);
+            bubble->setStyleSheet("background: rgba(30, 41, 59, 0.94); border-radius: 14px;");
+            rowLayout->addWidget(bubble);
+            rowLayout->addStretch();
         }
+
+        _messagesLayout->addWidget(rowWidget);
     }
 
     void setupUI() {
@@ -627,12 +739,15 @@ private:
         auto *searchBar = new QLineEdit(leftSidebar);
         searchBar->setPlaceholderText("🔍 Поиск диалогов...");
         searchBar->setStyleSheet("QLineEdit { background: rgba(255,255,255,0.07); color: #E2E8F0; border: none; border-radius: 10px; padding: 8px 12px; font-size: 12px; } QLineEdit:focus { background: rgba(255,255,255,0.12); }");
+        connect(searchBar, &QLineEdit::textChanged, this, [=](const QString &query) {
+            filterDialogs(query.trimmed());
+        });
         leftLayout->addWidget(searchBar);
 
         auto *chatScrollArea = new QScrollArea(leftSidebar);
         chatScrollArea->setWidgetResizable(true);
         chatScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        chatScrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollBar:vertical { background: transparent; width: 5px; margin: 0px; } QScrollBar::handle:vertical { background: rgba(255,255,255,0.18); border-radius: 2px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; } QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }");
+        chatScrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; }");
         
         _chatListWidget = new QWidget();
         _chatListWidget->setStyleSheet("background: transparent;");
@@ -683,13 +798,13 @@ private:
         _msgScrollArea = new QScrollArea(chatArea);
         _msgScrollArea->setWidgetResizable(true);
         _msgScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        _msgScrollArea->setStyleSheet("QScrollArea { background: rgba(0,0,0,0.35); border: none; border-radius: 12px; } QScrollBar:vertical { background: transparent; width: 5px; margin: 0px; } QScrollBar::handle:vertical { background: rgba(255,255,255,0.18); border-radius: 2px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; } QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }");
+        _msgScrollArea->setStyleSheet("QScrollArea { background: rgba(0,0,0,0.35); border: none; border-radius: 12px; }");
         
         _messagesWidget = new QWidget();
         _messagesWidget->setStyleSheet("background: transparent;");
         _messagesLayout = new QVBoxLayout(_messagesWidget);
         _messagesLayout->setContentsMargins(14, 14, 14, 14);
-        _messagesLayout->setSpacing(8);
+        _messagesLayout->setSpacing(6);
         _messagesLayout->addStretch();
         _msgScrollArea->setWidget(_messagesWidget);
 
@@ -731,6 +846,21 @@ private:
         mainSplitter->addWidget(chatArea);
         rootLayout->addLayout(mainSplitter);
 
+        // Стилизация скроллбаров
+        const QString scrollBarStyle = "QScrollBar:vertical { background: transparent; width: 6px; margin: 0px; }"
+            "QScrollBar::handle:vertical { background: rgba(255, 255, 255, 0.25); min-height: 24px; border-radius: 3px; }"
+            "QScrollBar::handle:vertical:hover { background: rgba(255, 255, 255, 0.45); }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; background: none; border: none; }"
+            "QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { background: none; border: none; width: 0px; height: 0px; }"
+            "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }";
+
+        if (chatScrollArea->verticalScrollBar()) {
+            chatScrollArea->verticalScrollBar()->setStyleSheet(scrollBarStyle);
+        }
+        if (_msgScrollArea->verticalScrollBar()) {
+            _msgScrollArea->verticalScrollBar()->setStyleSheet(scrollBarStyle);
+        }
+
         // 3. Подвал с подсказками
         auto *footerLabel = new QLabel("⌨ Shift + ~ | Shift + F11 | Ctrl + Shift + O | Esc чтобы закрыть  •  Перетаскивайте окно мышью за шапку", this);
         footerLabel->setAlignment(Qt::AlignCenter);
@@ -740,6 +870,8 @@ private:
 
     QPoint _dragPos;
     History *_activeHistory = nullptr;
+    int _renderedMessagesCount = 0;
+    QTimer _autoRefreshTimer;
 
     QWidget *_chatListWidget = nullptr;
     QVBoxLayout *_chatListLayout = nullptr;
