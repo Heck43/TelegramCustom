@@ -127,6 +127,7 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
             docMedia = document->createMediaView();
         }
         if (docMedia) {
+            docMedia->goodThumbnailWanted();
             docMedia->thumbnailWanted(item->fullId());
             if (const auto img = docMedia->goodThumbnail()) {
                 targetImage = img;
