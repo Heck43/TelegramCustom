@@ -51,6 +51,7 @@
 #include "data/data_web_page.h"
 #include "data/data_file_origin.h"
 #include "data/data_messages.h"
+#include "data/data_peer_values.h"
 #include "ui/image/image.h"
 #include <QtGui/QPainterPath>
 
