@@ -52,6 +52,7 @@
 #include "data/data_file_origin.h"
 #include "data/data_messages.h"
 #include "data/data_peer_values.h"
+#include "data/data_msg_id.h"
 #include "ui/image/image.h"
 #include <QtGui/QPainterPath>
 
@@ -126,6 +127,7 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
     Image *targetImage = nullptr;
     std::shared_ptr<Data::PhotoMedia> photoMedia;
     std::shared_ptr<Data::DocumentMedia> docMedia;
+    bool isInlineMicroThumb = false;
 
     if (photo && !photo->isNull()) {
         photoMedia = photo->activeMediaView();
@@ -133,7 +135,9 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
             photoMedia = photo->createMediaView();
         }
         if (photoMedia) {
+            photoMedia->wanted(Data::PhotoSize::Thumbnail, item->fullId());
             photoMedia->wanted(Data::PhotoSize::Small, item->fullId());
+            photoMedia->wanted(Data::PhotoSize::Large, item->fullId());
             if (const auto img = photoMedia->image(Data::PhotoSize::Large)) {
                 targetImage = img;
             } else if (const auto img = photoMedia->image(Data::PhotoSize::Thumbnail)) {
@@ -142,6 +146,7 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
                 targetImage = img;
             } else if (const auto img = photoMedia->thumbnailInline()) {
                 targetImage = img;
+                isInlineMicroThumb = true;
             }
         }
         if (!targetImage) {
@@ -155,6 +160,7 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
         if (docMedia) {
             docMedia->goodThumbnailWanted();
             docMedia->thumbnailWanted(item->fullId());
+            docMedia->videoThumbnailWanted(item->fullId());
             if (const auto img = docMedia->goodThumbnail()) {
                 targetImage = img;
             } else if (const auto img = docMedia->thumbnail()) {
@@ -165,6 +171,7 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
                 targetImage = img;
             } else if (const auto img = docMedia->thumbnailInline()) {
                 targetImage = img;
+                isInlineMicroThumb = true;
             }
         }
         if (!targetImage) {
@@ -187,15 +194,36 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
         return QPixmap();
     }
 
-    QSize scaledSize = orig.size().scaled(maxW, maxH, Qt::KeepAspectRatio);
-    if (scaledSize.width() < 1) scaledSize.setWidth(1);
-    if (scaledSize.height() < 1) scaledSize.setHeight(1);
+    QSize sz = orig.size();
+    if (sz.width() > maxW || sz.height() > maxH) {
+        sz.scale(maxW, maxH, Qt::KeepAspectRatio);
+    }
+    if (sz.width() < 120 && orig.width() > 0) {
+        const float ratio = float(orig.height()) / float(orig.width());
+        sz = QSize(160, int(160 * ratio));
+        if (sz.height() > maxH) {
+            sz.scale(maxW, maxH, Qt::KeepAspectRatio);
+        }
+    }
+    if (sz.width() < 80) sz.setWidth(80);
+    if (sz.height() < 60) sz.setHeight(60);
 
-    const qreal dpr = 2.0;
-    QSize renderSize = scaledSize * dpr;
-    QImage scaled = orig.scaled(renderSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    const int pxW = sz.width() * 2;
+    const int pxH = sz.height() * 2;
 
-    QPixmap result(renderSize);
+    QImage scaled;
+    if (isInlineMicroThumb || orig.width() <= 40 || orig.height() <= 40) {
+        scaled = orig.scaled(pxW, pxH, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    } else {
+        scaled = orig.scaled(pxW, pxH, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        if (scaled.width() > pxW || scaled.height() > pxH) {
+            const int x = (scaled.width() - pxW) / 2;
+            const int y = (scaled.height() - pxH) / 2;
+            scaled = scaled.copy(x, y, pxW, pxH);
+        }
+    }
+
+    QPixmap result(pxW, pxH);
     result.fill(Qt::transparent);
     {
         Painter p(&result);
@@ -203,16 +231,18 @@ inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, i
         p.setRenderHint(QPainter::SmoothPixmapTransform);
 
         QPainterPath path;
-        path.addRoundedRect(QRectF(0, 0, renderSize.width(), renderSize.height()), 12 * dpr, 12 * dpr);
+        path.addRoundedRect(0, 0, pxW, pxH, 20, 20);
         p.setClipPath(path);
+
         p.drawImage(0, 0, scaled);
 
         p.setClipping(false);
-        p.setPen(QPen(QColor(255, 255, 255, 30), 1.0 * dpr));
+        p.setPen(QPen(QColor(255, 255, 255, 30), 2.0));
         p.setBrush(Qt::NoBrush);
-        p.drawRoundedRect(QRectF(0.5 * dpr, 0.5 * dpr, renderSize.width() - 1.0 * dpr, renderSize.height() - 1.0 * dpr), 12 * dpr, 12 * dpr);
+        p.drawRoundedRect(QRectF(1, 1, pxW - 2, pxH - 2), 20, 20);
     }
-    result.setDevicePixelRatio(dpr);
+
+    result.setDevicePixelRatio(2.0);
     return result;
 }
 
@@ -295,11 +325,54 @@ public:
         resize(960, 640);
         setupUI();
 
+        _mediaUpdateTimer.setSingleShot(true);
+        _dialogsUpdateTimer.setSingleShot(true);
+
         connect(&_autoRefreshTimer, &QTimer::timeout, this, [=] {
             if (isVisible()) {
                 autoRefreshState();
             }
         });
+
+        connect(&_mediaUpdateTimer, &QTimer::timeout, this, [=] {
+            if (isVisible() && _activeHistory) {
+                renderActiveMessages(false);
+            }
+        });
+
+        connect(&_dialogsUpdateTimer, &QTimer::timeout, this, [=] {
+            if (isVisible()) {
+                reloadRealData();
+            }
+        });
+
+        subscribeToDataUpdates();
+    }
+
+    void subscribeToDataUpdates() {
+        const auto session = GetActiveSession();
+        if (!session) return;
+
+        session->downloaderTaskFinished(
+        ) | rpl::start_with_next([=] {
+            if (this->isVisible() && _activeHistory) {
+                _mediaUpdateTimer.start(150);
+            }
+        }, _lifetime);
+
+        session->data().viewRepaintRequest(
+        ) | rpl::start_with_next([=](const auto &) {
+            if (this->isVisible() && _activeHistory) {
+                _mediaUpdateTimer.start(150);
+            }
+        }, _lifetime);
+
+        session->data().chatsListChanges(
+        ) | rpl::start_with_next([=](auto *) {
+            if (this->isVisible()) {
+                _dialogsUpdateTimer.start(300);
+            }
+        }, _lifetime);
     }
 
     void toggleVisibility() {
@@ -354,13 +427,68 @@ public:
         }
     }
 
+    void loadHistorySlice(History *history) {
+        if (!history || !history->peer) return;
+        const auto session = GetActiveSession();
+        if (!session) return;
+
+        if (history->isEmpty()) {
+            history->getReadyFor(ShowAtTheEndMsgId);
+        }
+
+        const auto offsetId = history->minMsgId();
+        const auto loadCount = 50;
+
+        session->api().request(MTPmessages_GetHistory(
+            history->peer->input(),
+            MTP_int(offsetId),
+            MTP_int(0), // offsetDate
+            MTP_int(0), // addOffset
+            MTP_int(loadCount),
+            MTP_int(0), // maxId
+            MTP_int(0), // minId
+            MTP_long(0) // hash
+        )).done([=](const MTPmessages_Messages &result) {
+            const QVector<MTPMessage> *histList = nullptr;
+            switch (result.type()) {
+            case mtpc_messages_messages: {
+                auto &d = result.c_messages_messages();
+                history->owner().processUsers(d.vusers());
+                history->owner().processChats(d.vchats());
+                history->peer->processTopics(d.vtopics());
+                histList = &d.vmessages().v;
+            } break;
+            case mtpc_messages_messagesSlice: {
+                auto &d = result.c_messages_messagesSlice();
+                history->owner().processUsers(d.vusers());
+                history->owner().processChats(d.vchats());
+                history->peer->processTopics(d.vtopics());
+                histList = &d.vmessages().v;
+            } break;
+            case mtpc_messages_channelMessages: {
+                auto &d = result.c_messages_channelMessages();
+                history->owner().processUsers(d.vusers());
+                history->owner().processChats(d.vchats());
+                if (const auto channel = history->peer->asChannel()) {
+                    channel->ptsReceived(d.vpts().v);
+                }
+                history->peer->processTopics(d.vtopics());
+                histList = &d.vmessages().v;
+            } break;
+            default: break;
+            }
+            if (histList && !histList->isEmpty()) {
+                history->addOlderSlice(*histList);
+                if (this->isVisible() && _activeHistory == history) {
+                    this->renderActiveMessages(true);
+                }
+            }
+        }).send();
+    }
+
     void selectChat(History *history) {
         if (!history) return;
         _activeHistory = history;
-
-        if (const auto session = GetActiveSession()) {
-            session->api().requestHistory(history, 0, Data::LoadDirection::Around);
-        }
 
         const QString peerName = history->peer ? history->peer->name() : "Диалог";
         _chatHeaderName->setText(peerName);
@@ -381,11 +509,7 @@ public:
 
         renderActiveMessages(true);
 
-        QTimer::singleShot(400, [=] {
-            if (isVisible() && _activeHistory == history) {
-                renderActiveMessages(false);
-            }
-        });
+        loadHistorySlice(history);
     }
 
     void updateHeaderStatus() {
@@ -872,7 +996,10 @@ private:
     QPoint _dragPos;
     History *_activeHistory = nullptr;
     int _renderedMessagesCount = 0;
+    rpl::lifetime _lifetime;
     QTimer _autoRefreshTimer;
+    QTimer _mediaUpdateTimer;
+    QTimer _dialogsUpdateTimer;
 
     QWidget *_chatListWidget = nullptr;
     QVBoxLayout *_chatListLayout = nullptr;
