@@ -43,6 +43,15 @@
 #include "ui/painter.h"
 #include "ui/empty_userpic.h"
 #include "base/unixtime.h"
+#include "data/data_media_types.h"
+#include "data/data_photo.h"
+#include "data/data_photo_media.h"
+#include "data/data_document.h"
+#include "data/data_document_media.h"
+#include "data/data_web_page.h"
+#include "data/data_file_origin.h"
+#include "ui/image/image.h"
+#include <QtGui/QPainterPath>
 
 namespace CustomFeatures {
 
@@ -73,6 +82,111 @@ inline QPixmap GeneratePeerAvatarPixmap(PeerData *peer, int size) {
     }
     pix.setDevicePixelRatio(2.0);
     return pix;
+}
+
+inline QPixmap GenerateMediaThumbnailPixmap(HistoryItem *item, int maxW = 280, int maxH = 200) {
+    if (!item) return QPixmap();
+    const auto media = item->media();
+    if (!media) return QPixmap();
+
+    PhotoData *photo = media->photo();
+    DocumentData *document = media->document();
+    if (!photo && !document && media->webpage()) {
+        const auto page = media->webpage();
+        photo = page->photo;
+        document = page->document;
+    }
+
+    Image *targetImage = nullptr;
+    std::shared_ptr<Data::PhotoMedia> photoMedia;
+    std::shared_ptr<Data::DocumentMedia> docMedia;
+
+    if (photo && !photo->isNull()) {
+        photoMedia = photo->activeMediaView();
+        if (!photoMedia) {
+            photoMedia = photo->createMediaView();
+        }
+        if (photoMedia) {
+            photoMedia->wanted(Data::PhotoSize::Small, item->fullId());
+            if (const auto img = photoMedia->image(Data::PhotoSize::Large)) {
+                targetImage = img;
+            } else if (const auto img = photoMedia->image(Data::PhotoSize::Thumbnail)) {
+                targetImage = img;
+            } else if (const auto img = photoMedia->image(Data::PhotoSize::Small)) {
+                targetImage = img;
+            } else if (const auto img = photoMedia->thumbnailInline()) {
+                targetImage = img;
+            }
+        }
+        if (!targetImage) {
+            targetImage = photo->getReplyPreview(item);
+        }
+    } else if (document) {
+        docMedia = document->activeMediaView();
+        if (!docMedia) {
+            docMedia = document->createMediaView();
+        }
+        if (docMedia) {
+            docMedia->thumbnailWanted(item->fullId());
+            if (const auto img = docMedia->goodThumbnail()) {
+                targetImage = img;
+            } else if (const auto img = docMedia->thumbnail()) {
+                targetImage = img;
+            } else if (const auto img = docMedia->getStickerLarge()) {
+                targetImage = img;
+            } else if (const auto img = docMedia->getStickerSmall()) {
+                targetImage = img;
+            } else if (const auto img = docMedia->thumbnailInline()) {
+                targetImage = img;
+            }
+        }
+        if (!targetImage) {
+            targetImage = document->getReplyPreview(item);
+        }
+    }
+
+    if (!targetImage || targetImage->isNull()) {
+        return QPixmap();
+    }
+
+    QImage orig = targetImage->original();
+    if (orig.isNull()) {
+        const auto &p = targetImage->pix({ maxW, maxH });
+        if (!p.isNull()) {
+            orig = p.toImage();
+        }
+    }
+    if (orig.isNull() || orig.width() <= 0 || orig.height() <= 0) {
+        return QPixmap();
+    }
+
+    QSize scaledSize = orig.size().scaled(maxW, maxH, Qt::KeepAspectRatio);
+    if (scaledSize.width() < 1) scaledSize.setWidth(1);
+    if (scaledSize.height() < 1) scaledSize.setHeight(1);
+
+    const qreal dpr = 2.0;
+    QSize renderSize = scaledSize * dpr;
+    QImage scaled = orig.scaled(renderSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+    QPixmap result(renderSize);
+    result.fill(Qt::transparent);
+    {
+        Painter p(&result);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setRenderHint(QPainter::SmoothPixmapTransform);
+
+        QPainterPath path;
+        path.addRoundedRect(QRectF(0, 0, renderSize.width(), renderSize.height()), 12 * dpr, 12 * dpr);
+        p.setClipPath(path);
+        p.drawImage(0, 0, scaled);
+
+        p.setClipping(false);
+        p.setPen(QPen(QColor(255, 255, 255, 30), 1.0 * dpr));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(QRectF(0.5 * dpr, 0.5 * dpr, renderSize.width() - 1.0 * dpr, renderSize.height() - 1.0 * dpr), 12 * dpr, 12 * dpr);
+    }
+    result.setDevicePixelRatio(dpr);
+    return result;
 }
 
 struct RunningAppInfo {
@@ -255,17 +369,29 @@ public:
         for (const auto item : recentMessages) {
             const bool out = item->out();
             QString text = item->originalText().text;
-            if (text.isEmpty()) {
+
+            bool isGif = false;
+            if (const auto media = item->media()) {
+                if (const auto doc = media->document()) {
+                    if (doc->isGifv() || doc->isAnimation()) {
+                        isGif = true;
+                    }
+                }
+            }
+
+            const QPixmap thumb = GenerateMediaThumbnailPixmap(item, 260, 180);
+
+            if (text.isEmpty() && thumb.isNull()) {
                 text = item->notificationText().text;
             }
-            if (text.isEmpty()) {
+            if (text.isEmpty() && thumb.isNull()) {
                 text = item->isService() ? "Уведомление" : "[Медиасообщение]";
             }
 
             const auto date = base::unixtime::parse(item->date());
             const QString timeStr = date.toString("HH:mm");
 
-            addMessageBubble(text, out, timeStr);
+            addMessageBubble(text, out, timeStr, thumb, isGif);
         }
 
         _messagesLayout->addStretch();
@@ -402,16 +528,36 @@ private:
         _chatListLayout->addWidget(overlayWrap);
     }
 
-    void addMessageBubble(const QString &text, bool out, const QString &timeStr) {
+    void addMessageBubble(const QString &text, bool out, const QString &timeStr, const QPixmap &mediaThumb = QPixmap(), bool isGif = false) {
         auto *bubble = new QWidget(_messagesWidget);
         auto *bubbleLayout = new QVBoxLayout(bubble);
-        bubbleLayout->setContentsMargins(12, 8, 12, 8);
-        bubbleLayout->setSpacing(3);
+        bubbleLayout->setContentsMargins(10, 8, 10, 8);
+        bubbleLayout->setSpacing(6);
 
-        auto *msgLabel = new QLabel(text, bubble);
-        msgLabel->setWordWrap(true);
-        msgLabel->setStyleSheet("color: #FFFFFF; font-size: 12px; line-height: 1.4;");
-        bubbleLayout->addWidget(msgLabel);
+        if (!mediaThumb.isNull()) {
+            auto *imageLabel = new QLabel(bubble);
+            const QSize logicalSize = mediaThumb.devicePixelRatio() > 0
+                ? QSize(int(mediaThumb.width() / mediaThumb.devicePixelRatio()), int(mediaThumb.height() / mediaThumb.devicePixelRatio()))
+                : mediaThumb.size();
+            imageLabel->setFixedSize(logicalSize);
+            imageLabel->setPixmap(mediaThumb);
+            imageLabel->setStyleSheet("background: transparent;");
+
+            if (isGif) {
+                auto *gifBadge = new QLabel("GIF", imageLabel);
+                gifBadge->setStyleSheet("background: rgba(0, 0, 0, 0.7); color: #FFFFFF; font-size: 10px; font-weight: bold; padding: 2px 5px; border-radius: 4px;");
+                gifBadge->move(6, 6);
+            }
+
+            bubbleLayout->addWidget(imageLabel);
+        }
+
+        if (!text.isEmpty()) {
+            auto *msgLabel = new QLabel(text, bubble);
+            msgLabel->setWordWrap(true);
+            msgLabel->setStyleSheet("color: #FFFFFF; font-size: 12px; line-height: 1.4;");
+            bubbleLayout->addWidget(msgLabel);
+        }
 
         auto *timeLabel = new QLabel(timeStr + (out ? "  ✓✓" : ""), bubble);
         timeLabel->setAlignment(Qt::AlignRight);
