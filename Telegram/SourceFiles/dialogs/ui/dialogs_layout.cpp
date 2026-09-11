@@ -489,6 +489,21 @@ void PaintRow(
 	
 	// CUSTOM: Apply custom border radius to chat rows
 	const int customRadius = CustomFeatures::GetConfig().chatBorderRadius;
+	
+	// CUSTOM: Draw soft shadow first (if enabled)
+	if (CustomFeatures::GetConfig().enableSoftShadows && customRadius > 0) {
+		// Рисуем тень под элементом
+		p.save();
+		p.setOpacity(0.15);
+		const auto shadowRect = geometry.adjusted(1, 1, -1, 3);
+		const auto shadowCorners = Ui::PrepareCornerPixmaps(
+			customRadius, 
+			style::color(0, 0, 0, 40), 
+			nullptr);
+		Ui::FillRoundRect(p, shadowRect, style::color(0, 0, 0, 40), shadowCorners);
+		p.restore();
+	}
+	
 	if (customRadius > 0 && customRadius <= 24) {
 		// Use rounded corners
 		const auto corners = Ui::PrepareCornerPixmaps(customRadius, bg, nullptr);

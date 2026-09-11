@@ -2,6 +2,11 @@
 
 #include "custom_features/custom_settings.hpp"
 #include <QEasingCurve>
+#include <QGraphicsDropShadowEffect>
+#include <QPainter>
+#include <QRect>
+#include <QRadialGradient>
+#include <QWidget>
 
 namespace CustomFeatures {
 namespace UI {
@@ -22,6 +27,21 @@ inline int GetButtonBorderRadius() {
 // Тени
 inline bool AreSoftShadowsEnabled() {
     return GetConfig().enableSoftShadows;
+}
+
+// Создать эффект тени для виджета
+inline QGraphicsDropShadowEffect* CreateSoftShadow(QWidget* widget) {
+    if (!AreSoftShadowsEnabled()) {
+        return nullptr;
+    }
+    
+    auto* shadow = new QGraphicsDropShadowEffect(widget);
+    shadow->setBlurRadius(8);           // Радиус размытия
+    shadow->setXOffset(0);              // Смещение по X
+    shadow->setYOffset(2);              // Смещение по Y (вниз)
+    shadow->setColor(QColor(0, 0, 0, 25)); // Чёрный с прозрачностью 10%
+    
+    return shadow;
 }
 
 // Анимации
@@ -70,6 +90,27 @@ inline QString GetSoftShadowStyle() {
 // CSS border-radius для QSS
 inline QString GetBorderRadiusStyle(int radius) {
     return QString("border-radius: %1px;").arg(radius);
+}
+
+// Нарисовать мягкую тень под прямоугольником (для QPainter)
+inline void DrawSoftShadow(QPainter& p, const QRect& rect, int radius) {
+    if (!AreSoftShadowsEnabled()) {
+        return;
+    }
+    
+    // Создаём градиент для тени
+    const int shadowSize = 8;
+    QRect shadowRect = rect.adjusted(-shadowSize, -shadowSize, shadowSize, shadowSize);
+    
+    QRadialGradient gradient(rect.center(), rect.width() / 2.0 + shadowSize);
+    gradient.setColorAt(0, QColor(0, 0, 0, 25));
+    gradient.setColorAt(1, QColor(0, 0, 0, 0));
+    
+    p.save();
+    p.setBrush(gradient);
+    p.setPen(Qt::NoPen);
+    p.drawRoundedRect(shadowRect, radius + 2, radius + 2);
+    p.restore();
 }
 
 } // namespace UI
