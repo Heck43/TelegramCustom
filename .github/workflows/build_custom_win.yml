@@ -92,6 +92,7 @@ jobs:
 
       - name: Clone Official TDesktop with Submodules
         run: |
+          if exist "%TBUILD%\TelegramCustom" rmdir /s /q "%TBUILD%\TelegramCustom"
           git clone --depth 1 --branch v7.0.9 --recurse-submodules https://github.com/telegramdesktop/tdesktop.git %TBUILD%\TelegramCustom
 
       - name: Apply Custom Modifications
