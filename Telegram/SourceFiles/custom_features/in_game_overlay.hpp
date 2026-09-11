@@ -355,21 +355,21 @@ public:
         if (!session) return;
 
         session->downloaderTaskFinished(
-        ) | rpl::start_with_next([=] {
+        ) | rpl::on_next([=] {
             if (this->isVisible() && _activeHistory) {
                 _mediaUpdateTimer.start(150);
             }
         }, _lifetime);
 
         session->data().viewRepaintRequest(
-        ) | rpl::start_with_next([=](const auto &) {
+        ) | rpl::on_next([=](const auto &) {
             if (this->isVisible() && _activeHistory) {
                 _mediaUpdateTimer.start(150);
             }
         }, _lifetime);
 
         session->data().chatsListChanges(
-        ) | rpl::start_with_next([=](auto *) {
+        ) | rpl::on_next([=](auto *) {
             if (this->isVisible()) {
                 _dialogsUpdateTimer.start(300);
             }
