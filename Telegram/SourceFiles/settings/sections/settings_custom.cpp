@@ -366,6 +366,47 @@ const auto kMeta = BuildHelper({
 
 	builder.addSkip(st::settingsCheckboxesSkip);
 
+	// Скругление углов чатов в списке (слайдер)
+	builder.add([](const BuildContext &ctx) {
+		auto result = MakeSliderWithLabel(
+			ctx.outer,
+			st::settingsSlider,
+			st::settingsSliderLabel,
+			st::settingsSliderLabelSkip);
+		
+		const auto slider = result.slider;
+		const auto label = result.label;
+		
+		const int currentRadius = CustomFeatures::GetConfig().chatBorderRadius;
+		slider->setMoveByWheel(true);
+		slider->resize(st::settingsSlider.seekSize);
+		slider->setPseudoDiscrete(
+			25,
+			[](int val) { return val; },
+			currentRadius,
+			[=](int val) {
+				CustomFeatures::GetConfig().chatBorderRadius = val;
+				CustomFeatures::GetConfig().save();
+				label->setText(QString::number(val) + u" px"_q);
+			});
+		
+		label->setText(QString::number(currentRadius) + u" px"_q);
+		
+		auto subtitle = object_ptr<Ui::FlatLabel>(
+			ctx.outer,
+			rpl::single(u"Скругление углов чатов в списке"_q),
+			st::settingsSubsectionTitle);
+		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+		
+		auto container = object_ptr<Ui::VerticalLayout>(ctx.outer);
+		container->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
+		container->add(std::move(result.widget));
+		
+		return WidgetToAdd{ .widget = std::move(container) };
+	});
+
+	builder.addSkip(st::settingsCheckboxesSkip);
+
 	// Мягкие тени
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/soft_shadows"_q,

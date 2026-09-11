@@ -46,6 +46,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/unread_badge.h"
 #include "ui/unread_badge_paint.h"
 #include "ui/unread_counter_format.h"
+#include "ui/cached_round_corners.h"
+#include "custom_features/custom_settings.hpp"
 #include "styles/style_dialogs.h"
 #include "styles/style_dialogs_layout.h"
 #include "styles/style_widgets.h"
@@ -484,7 +486,18 @@ void PaintRow(
 	if (swipeTranslation) {
 		p.translate(-swipeTranslation, 0);
 	}
-	p.fillRect(geometry, bg);
+	
+	// CUSTOM: Apply custom border radius to chat rows
+	const int customRadius = CustomFeatures::GetConfig().chatBorderRadius;
+	if (customRadius > 0 && customRadius <= 24) {
+		// Use rounded corners
+		const auto corners = Ui::PrepareCornerPixmaps(customRadius, bg, nullptr);
+		Ui::FillRoundRect(p, geometry, bg, corners);
+	} else {
+		// Standard square background
+		p.fillRect(geometry, bg);
+	}
+	
 	if (!(flags & Flag::TopicJumpRipple)) {
 		auto ripple = context.active
 			? st::dialogsRippleBgActive
