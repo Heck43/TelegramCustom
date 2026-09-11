@@ -65,6 +65,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "chat_helpers/spellchecker_common.h"
 #endif // TDESKTOP_DISABLE_SPELLCHECK
 
+#ifdef Q_OS_WIN
+#include "custom_features/game_activity_status.hpp"
+#endif // Q_OS_WIN
+
 namespace Main {
 namespace {
 
@@ -259,6 +263,16 @@ Session::Session(
 	_api->requestNotifySettings(MTP_inputNotifyBroadcasts());
 
 	Core::App().downloadManager().trackSession(this);
+
+#ifdef Q_OS_WIN
+	CustomFeatures::GameActivityDetector::Instance().startMonitoring([=](const auto &game, bool playing) {
+		if (playing) {
+			LOG(("Game Activity: Started playing %1").arg(game.displayName));
+		} else {
+			LOG(("Game Activity: Stopped playing"));
+		}
+	});
+#endif // Q_OS_WIN
 
 	appConfig().value(
 	) | rpl::on_next([=] {

@@ -287,6 +287,19 @@ const auto kMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/hide_premium_promos"_q,
+		.title = rpl::single(u"Скрыть промо Premium подписки"_q),
+		.checked = CustomFeatures::GetConfig().hidePremiumPromos,
+		.keywords = { u"premium"_q, u"hide"_q, u"promo"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().hidePremiumPromos = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
 });
 
 const SectionBuildMethod kCustomSection = kMeta.build;

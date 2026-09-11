@@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/controls/jump_down_button.h"
 #include "ui/controls/swipe_handler.h"
 #include "ui/painter.h"
+#include "custom_features/custom_settings.hpp"
 #include "ui/rect.h"
 #include "ui/screen_reader_mode.h"
 #include "ui/ui_utility.h"
@@ -2769,6 +2770,7 @@ void Widget::updateStoriesVisibility() {
 		|| (widthAnimation && !suggestionsAnimation)
 		|| _childList
 		|| _stories->empty()
+		|| CustomFeatures::GetConfig().hideStoriesBar
 		|| (pulledDown && hiddenAnimated);
 	const auto hidden = hiddenInstant || hiddenAnimated;
 	const auto changed = (_stories->toggledHidden() != hidden);
