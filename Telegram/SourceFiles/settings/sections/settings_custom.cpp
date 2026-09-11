@@ -25,12 +25,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
+#include "ui/widgets/continuous_sliders.h"
+#include "ui/widgets/labels.h"
 #include "ui/layers/generic_box.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
+#include "styles/style_layers.h"
 
 namespace Settings {
 namespace {
@@ -322,6 +325,47 @@ const auto kMeta = BuildHelper({
 	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Кастомизация интерфейса"_q));
 
+	// Скругление углов сообщений (слайдер)
+	builder.add([](const BuildContext &ctx) {
+		auto result = MakeSliderWithLabel(
+			ctx.outer,
+			st::settingsSlider,
+			st::settingsSliderLabel,
+			st::settingsSliderLabelSkip);
+		
+		const auto slider = result.slider;
+		const auto label = result.label;
+		
+		const int currentRadius = CustomFeatures::GetConfig().messageBorderRadius;
+		slider->setMoveByWheel(true);
+		slider->resize(st::settingsSlider.seekSize);
+		slider->setPseudoDiscrete(
+			25,
+			[](int val) { return val; },
+			currentRadius,
+			[=](int val) {
+				CustomFeatures::GetConfig().messageBorderRadius = val;
+				CustomFeatures::GetConfig().save();
+				label->setText(QString::number(val) + u" px"_q);
+			});
+		
+		label->setText(QString::number(currentRadius) + u" px"_q);
+		
+		auto subtitle = object_ptr<Ui::FlatLabel>(
+			ctx.outer,
+			rpl::single(u"Скругление углов сообщений"_q),
+			st::settingsSubsectionTitle);
+		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+		
+		auto container = object_ptr<Ui::VerticalLayout>(ctx.outer);
+		container->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
+		container->add(std::move(result.widget));
+		
+		return WidgetToAdd{ .widget = std::move(container) };
+	});
+
+	builder.addSkip(st::settingsCheckboxesSkip);
+
 	// Мягкие тени
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/soft_shadows"_q,
@@ -350,7 +394,7 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	builder.addDividerText(rpl::single(u"Дополнительные настройки внешнего вида (скругление углов, размеры шрифтов, плотность) будут доступны в следующей версии. Перезапустите Telegram для применения изменений."_q));
+	builder.addDividerText(rpl::single(u"Перезапустите Telegram для применения изменений скругления углов."_q));
 });
 
 const SectionBuildMethod kCustomSection = kMeta.build;
