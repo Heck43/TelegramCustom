@@ -98,6 +98,24 @@ const auto kMeta = BuildHelper({
 	}
 
 	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Производительность"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/fast_startup"_q,
+		.title = rpl::single(u"Быстрый запуск (отложенная загрузка)"_q),
+		.checked = CustomFeatures::GetConfig().fastStartup,
+		.keywords = { u"fast"_q, u"startup"_q, u"speed"_q, u"performance"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().fastStartup = checked;
+			CustomFeatures::GetConfig().delayStickersLoad = checked;
+			CustomFeatures::GetConfig().delayStoriesLoad = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+
+	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Стикеры и медиа"_q));
 
 	if (const auto check = builder.addCheckbox({

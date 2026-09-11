@@ -32,6 +32,11 @@ struct ClientConfig {
     bool hideSponsoredAds = true;          // Скрыть спонсорские посты и рекламные плашки вверху
     bool hidePremiumPromos = true;         // Скрыть промо Premium
 
+    // 5. Производительность
+    bool fastStartup = true;               // Быстрый запуск (отложенная загрузка)
+    bool delayStickersLoad = true;         // Отложить загрузку стикеров
+    bool delayStoriesLoad = true;          // Отложить загрузку Stories
+
     void load() {
         const auto path = getSettingsFilePath();
         QSettings s(path, QSettings::IniFormat);
@@ -50,6 +55,9 @@ struct ClientConfig {
         hideStoriesBar = s.value("hideStoriesBar", hideStoriesBar).toBool();
         hideSponsoredAds = s.value("hideSponsoredAds", hideSponsoredAds).toBool();
         hidePremiumPromos = s.value("hidePremiumPromos", hidePremiumPromos).toBool();
+        fastStartup = s.value("fastStartup", fastStartup).toBool();
+        delayStickersLoad = s.value("delayStickersLoad", delayStickersLoad).toBool();
+        delayStoriesLoad = s.value("delayStoriesLoad", delayStoriesLoad).toBool();
     }
 
     void save() const {
@@ -70,6 +78,9 @@ struct ClientConfig {
         s.setValue("hideStoriesBar", hideStoriesBar);
         s.setValue("hideSponsoredAds", hideSponsoredAds);
         s.setValue("hidePremiumPromos", hidePremiumPromos);
+        s.setValue("fastStartup", fastStartup);
+        s.setValue("delayStickersLoad", delayStickersLoad);
+        s.setValue("delayStoriesLoad", delayStoriesLoad);
         s.sync();
     }
 
