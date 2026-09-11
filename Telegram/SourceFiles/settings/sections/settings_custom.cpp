@@ -318,6 +318,39 @@ const auto kMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Кастомизация интерфейса"_q));
+
+	// Мягкие тени
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/soft_shadows"_q,
+		.title = rpl::single(u"Мягкие тени под элементами"_q),
+		.checked = CustomFeatures::GetConfig().enableSoftShadows,
+		.keywords = { u"shadows"_q, u"ui"_q, u"design"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enableSoftShadows = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+
+	// Плавная прокрутка
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/smooth_scrolling"_q,
+		.title = rpl::single(u"Плавная прокрутка"_q),
+		.checked = CustomFeatures::GetConfig().smoothScrolling,
+		.keywords = { u"smooth"_q, u"scroll"_q, u"animation"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().smoothScrolling = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+
+	builder.addDividerText(rpl::single(u"Дополнительные настройки внешнего вида (скругление углов, размеры шрифтов, плотность) будут доступны в следующей версии. Перезапустите Telegram для применения изменений."_q));
 });
 
 const SectionBuildMethod kCustomSection = kMeta.build;

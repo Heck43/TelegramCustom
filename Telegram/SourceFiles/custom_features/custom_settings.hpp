@@ -37,6 +37,16 @@ struct ClientConfig {
     bool delayStickersLoad = true;         // Отложить загрузку стикеров
     bool delayStoriesLoad = true;          // Отложить загрузку Stories
 
+    // 6. UI Customization
+    int chatBorderRadius = 12;             // Скругление углов чатов (0-24px)
+    int messageBorderRadius = 12;          // Скругление углов сообщений (0-24px)
+    int buttonBorderRadius = 8;            // Скругление кнопок (0-16px)
+    bool enableSoftShadows = true;         // Мягкие тени под элементами
+    int uiDensity = 5;                     // Плотность UI (0=compact, 5=normal, 10=spacious)
+    int animationSpeed = 5;                // Скорость анимаций (0=instant, 5=normal, 10=slow)
+    bool smoothScrolling = true;           // Плавная прокрутка
+    int fontSize = 14;                     // Размер шрифта (10-20px)
+
     void load() {
         const auto path = getSettingsFilePath();
         QSettings s(path, QSettings::IniFormat);
@@ -58,6 +68,15 @@ struct ClientConfig {
         fastStartup = s.value("fastStartup", fastStartup).toBool();
         delayStickersLoad = s.value("delayStickersLoad", delayStickersLoad).toBool();
         delayStoriesLoad = s.value("delayStoriesLoad", delayStoriesLoad).toBool();
+        
+        chatBorderRadius = s.value("chatBorderRadius", chatBorderRadius).toInt();
+        messageBorderRadius = s.value("messageBorderRadius", messageBorderRadius).toInt();
+        buttonBorderRadius = s.value("buttonBorderRadius", buttonBorderRadius).toInt();
+        enableSoftShadows = s.value("enableSoftShadows", enableSoftShadows).toBool();
+        uiDensity = s.value("uiDensity", uiDensity).toInt();
+        animationSpeed = s.value("animationSpeed", animationSpeed).toInt();
+        smoothScrolling = s.value("smoothScrolling", smoothScrolling).toBool();
+        fontSize = s.value("fontSize", fontSize).toInt();
     }
 
     void save() const {
@@ -81,6 +100,15 @@ struct ClientConfig {
         s.setValue("fastStartup", fastStartup);
         s.setValue("delayStickersLoad", delayStickersLoad);
         s.setValue("delayStoriesLoad", delayStoriesLoad);
+        
+        s.setValue("chatBorderRadius", chatBorderRadius);
+        s.setValue("messageBorderRadius", messageBorderRadius);
+        s.setValue("buttonBorderRadius", buttonBorderRadius);
+        s.setValue("enableSoftShadows", enableSoftShadows);
+        s.setValue("uiDensity", uiDensity);
+        s.setValue("animationSpeed", animationSpeed);
+        s.setValue("smoothScrolling", smoothScrolling);
+        s.setValue("fontSize", fontSize);
         s.sync();
     }
 
