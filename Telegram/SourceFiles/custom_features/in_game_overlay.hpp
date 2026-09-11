@@ -54,6 +54,7 @@
 #include "data/data_peer_values.h"
 #include "data/data_msg_id.h"
 #include "ui/image/image.h"
+#include "base/flat_set.h"
 #include <QtGui/QPainterPath>
 
 namespace CustomFeatures {
@@ -354,21 +355,21 @@ public:
         if (!session) return;
 
         session->downloaderTaskFinished(
-        ) | rpl::start([=] {
+        ) | rpl::start_with_next([=] {
             if (this->isVisible() && _activeHistory) {
                 _mediaUpdateTimer.start(150);
             }
         }, _lifetime);
 
         session->data().viewRepaintRequest(
-        ) | rpl::start([=](const auto &) {
+        ) | rpl::start_with_next([=](const auto &) {
             if (this->isVisible() && _activeHistory) {
                 _mediaUpdateTimer.start(150);
             }
         }, _lifetime);
 
         session->data().chatsListChanges(
-        ) | rpl::start([=](auto *) {
+        ) | rpl::start_with_next([=](auto *) {
             if (this->isVisible()) {
                 _dialogsUpdateTimer.start(300);
             }
