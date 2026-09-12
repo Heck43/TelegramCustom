@@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/layers/generic_box.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
+#include "styles/style_basic.h"
 #include "styles/style_boxes.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
@@ -326,28 +327,20 @@ const auto kMeta = BuildHelper({
 	builder.addSubsectionTitle(rpl::single(u"Кастомизация интерфейса"_q));
 
 	// Скругление углов сообщений (слайдер)
+	builder.addSubsectionTitle(rpl::single(u"Скругление углов сообщений"_q));
 	builder.add([](const WidgetContext &ctx) {
-		auto wrap = object_ptr<Ui::VerticalLayout>(ctx.container.get());
-
-		auto subtitle = object_ptr<Ui::FlatLabel>(
-			wrap.data(),
-			rpl::single(u"Скругление углов сообщений"_q),
-			st::settingsSubsectionTitle);
-		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
-		wrap->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
-
 		auto result = MakeSliderWithLabel(
-			wrap.data(),
-			st::settingsSlider,
-			st::settingsSliderLabel,
-			st::settingsSliderLabelSkip);
+			ctx.container.get(),
+			st::settingsScale,
+			st::settingsScaleLabel,
+			st::normalFont->spacew * 2,
+			st::settingsScaleLabel.style.font->width("24 px"),
+			false);
 
 		const auto slider = result.slider;
 		const auto label = result.label;
 
 		const int currentRadius = CustomFeatures::GetConfig().messageBorderRadius;
-		slider->setMoveByWheel(true);
-		slider->resize(st::settingsSlider.seekSize);
 		slider->setPseudoDiscrete(
 			25,
 			[](int val) { return val; },
@@ -359,36 +352,30 @@ const auto kMeta = BuildHelper({
 			});
 
 		label->setText(QString::number(currentRadius) + u" px"_q);
-		wrap->add(std::move(result.widget));
 
-		return SectionBuilder::WidgetToAdd{ .widget = std::move(wrap) };
+		return SectionBuilder::WidgetToAdd{
+			.widget = std::move(result.widget),
+			.margin = st::settingsScalePadding,
+		};
 	});
 
 	builder.addSkip(st::settingsCheckboxesSkip);
 
 	// Скругление углов чатов в списке (слайдер)
+	builder.addSubsectionTitle(rpl::single(u"Скругление углов чатов в списке"_q));
 	builder.add([](const WidgetContext &ctx) {
-		auto wrap = object_ptr<Ui::VerticalLayout>(ctx.container.get());
-
-		auto subtitle = object_ptr<Ui::FlatLabel>(
-			wrap.data(),
-			rpl::single(u"Скругление углов чатов в списке"_q),
-			st::settingsSubsectionTitle);
-		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
-		wrap->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
-
 		auto result = MakeSliderWithLabel(
-			wrap.data(),
-			st::settingsSlider,
-			st::settingsSliderLabel,
-			st::settingsSliderLabelSkip);
+			ctx.container.get(),
+			st::settingsScale,
+			st::settingsScaleLabel,
+			st::normalFont->spacew * 2,
+			st::settingsScaleLabel.style.font->width("24 px"),
+			false);
 
 		const auto slider = result.slider;
 		const auto label = result.label;
 
 		const int currentRadius = CustomFeatures::GetConfig().chatBorderRadius;
-		slider->setMoveByWheel(true);
-		slider->resize(st::settingsSlider.seekSize);
 		slider->setPseudoDiscrete(
 			25,
 			[](int val) { return val; },
@@ -400,9 +387,11 @@ const auto kMeta = BuildHelper({
 			});
 
 		label->setText(QString::number(currentRadius) + u" px"_q);
-		wrap->add(std::move(result.widget));
 
-		return SectionBuilder::WidgetToAdd{ .widget = std::move(wrap) };
+		return SectionBuilder::WidgetToAdd{
+			.widget = std::move(result.widget),
+			.margin = st::settingsScalePadding,
+		};
 	});
 
 	builder.addSkip(st::settingsCheckboxesSkip);
