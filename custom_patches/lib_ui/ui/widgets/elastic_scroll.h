@@ -381,6 +381,13 @@ private:
 	Ui::Animations::Simple _overscrollReturnAnimation;
 	Ui::Animations::Simple _smoothScrollAnimation;
 	int _smoothScrollTarget = 0;
+	class MotionBlurOverlay;
+	std::unique_ptr<MotionBlurOverlay> _motionBlurOverlay;
+	float64 _lastMotionScrollPos = 0.;
+	QPixmap _motionBlurSnapshot;
+	int _motionBlurSnapshotPos = 0;
+	[[nodiscard]] QPixmap grabVisibleContent();
+	void stopSmoothScroll();
 	rpl::variable<Position> _position;
 	rpl::variable<Movement> _movement;
 

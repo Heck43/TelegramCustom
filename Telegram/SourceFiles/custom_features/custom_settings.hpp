@@ -45,6 +45,8 @@ struct ClientConfig {
     int uiDensity = 5;                     // Плотность UI (0=compact, 5=normal, 10=spacious)
     int animationSpeed = 5;                // Скорость анимаций (0=instant, 5=normal, 10=slow)
     bool smoothScrolling = true;           // Плавная прокрутка
+    bool enableMotionBlur = true;          // Размытие в движении (Motion Blur)
+    int motionBlurIntensity = 5;           // Интенсивность Motion Blur (1-10)
     int fontSize = 14;                     // Размер шрифта (10-20px)
 
     void load() {
@@ -76,6 +78,10 @@ struct ClientConfig {
         uiDensity = s.value("uiDensity", uiDensity).toInt();
         animationSpeed = s.value("animationSpeed", animationSpeed).toInt();
         smoothScrolling = s.value("smoothScrolling", smoothScrolling).toBool();
+        enableMotionBlur = s.value("enableMotionBlur", enableMotionBlur).toBool();
+        motionBlurIntensity = s.value("motionBlurIntensity", motionBlurIntensity).toInt();
+        if (motionBlurIntensity < 1) motionBlurIntensity = 1;
+        if (motionBlurIntensity > 10) motionBlurIntensity = 10;
         fontSize = s.value("fontSize", fontSize).toInt();
     }
 
@@ -108,6 +114,8 @@ struct ClientConfig {
         s.setValue("uiDensity", uiDensity);
         s.setValue("animationSpeed", animationSpeed);
         s.setValue("smoothScrolling", smoothScrolling);
+        s.setValue("enableMotionBlur", enableMotionBlur);
+        s.setValue("motionBlurIntensity", motionBlurIntensity);
         s.setValue("fontSize", fontSize);
         s.sync();
     }

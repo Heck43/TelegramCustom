@@ -336,6 +336,8 @@ QColor BlendColors(QColor color1, QColor color2, float64 ratio) {
 
 namespace {
 Fn<bool()> GlobalSmoothScrollingCallback;
+Fn<bool()> GlobalMotionBlurEnabledCallback;
+Fn<int()> GlobalMotionBlurIntensityCallback;
 } // namespace
 
 void SetSmoothScrollingCallback(Fn<bool()> callback) {
@@ -344,6 +346,19 @@ void SetSmoothScrollingCallback(Fn<bool()> callback) {
 
 bool IsSmoothScrollingEnabled() {
 	return GlobalSmoothScrollingCallback ? GlobalSmoothScrollingCallback() : true;
+}
+
+void SetMotionBlurCallback(Fn<bool()> enabled, Fn<int()> intensity) {
+	GlobalMotionBlurEnabledCallback = std::move(enabled);
+	GlobalMotionBlurIntensityCallback = std::move(intensity);
+}
+
+bool IsMotionBlurEnabled() {
+	return GlobalMotionBlurEnabledCallback ? GlobalMotionBlurEnabledCallback() : true;
+}
+
+int MotionBlurIntensity() {
+	return GlobalMotionBlurIntensityCallback ? GlobalMotionBlurIntensityCallback() : 5;
 }
 
 } // namespace Ui

@@ -487,33 +487,37 @@ void PaintRow(
 		p.translate(-swipeTranslation, 0);
 	}
 	
-	// CUSTOM: Apply custom border radius to chat rows
+	// CUSTOM: Always fill row base with list background so corners are never unpainted
+	p.fillRect(geometry, context.currentBg);
+
+	// CUSTOM: Apply custom border radius to active/selected chat rows
 	const int customRadius = CustomFeatures::GetConfig().chatBorderRadius;
-	
-	// CUSTOM: Draw soft shadow first (if enabled)
-	if (CustomFeatures::GetConfig().enableSoftShadows && customRadius > 0) {
-		// Рисуем тень под элементом
-		p.save();
-		p.setRenderHint(QPainter::Antialiasing);
-		p.setOpacity(0.15);
-		p.setPen(Qt::NoPen);
-		p.setBrush(QColor(0, 0, 0, 40));
-		const auto shadowRect = geometry.adjusted(1, 1, -1, 3);
-		p.drawRoundedRect(shadowRect, customRadius, customRadius);
-		p.restore();
-	}
-	
-	if (customRadius > 0 && customRadius <= 24) {
-		// Use rounded corners
-		p.save();
-		p.setRenderHint(QPainter::Antialiasing);
-		p.setPen(Qt::NoPen);
-		p.setBrush(bg);
-		p.drawRoundedRect(geometry, customRadius, customRadius);
-		p.restore();
-	} else {
-		// Standard square background
-		p.fillRect(geometry, bg);
+	if (context.active || context.selected) {
+		const auto marginH = (customRadius > 0) ? (context.narrow ? 2 : 4) : 0;
+		const auto marginV = (customRadius > 0) ? 2 : 0;
+		const auto itemRect = geometry.adjusted(marginH, marginV, -marginH, -marginV);
+
+		// Draw soft shadow under active/selected row
+		if (CustomFeatures::GetConfig().enableSoftShadows && customRadius > 0) {
+			p.save();
+			p.setRenderHint(QPainter::Antialiasing);
+			p.setOpacity(0.18);
+			p.setPen(Qt::NoPen);
+			p.setBrush(QColor(0, 0, 0, 80));
+			p.drawRoundedRect(itemRect.adjusted(0, 1, 0, 2), customRadius, customRadius);
+			p.restore();
+		}
+
+		if (customRadius > 0 && customRadius <= 24) {
+			p.save();
+			p.setRenderHint(QPainter::Antialiasing);
+			p.setPen(Qt::NoPen);
+			p.setBrush(bg);
+			p.drawRoundedRect(itemRect, customRadius, customRadius);
+			p.restore();
+		} else {
+			p.fillRect(geometry, bg);
+		}
 	}
 	
 	if (!(flags & Flag::TopicJumpRipple)) {

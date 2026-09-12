@@ -161,4 +161,8 @@ private:
 void SetSmoothScrollingCallback(Fn<bool()> callback);
 [[nodiscard]] bool IsSmoothScrollingEnabled();
 
+void SetMotionBlurCallback(Fn<bool()> enabled, Fn<int()> intensity);
+[[nodiscard]] bool IsMotionBlurEnabled();
+[[nodiscard]] int MotionBlurIntensity();
+
 } // namespace Ui

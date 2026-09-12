@@ -4,6 +4,27 @@
 
 ---
 
+### [Коммит `00ccda7`] — 13 сентября 2026 г.
+- **Сообщение коммита:** *feat: Add Motion Blur effect with configurable intensity and fix chat icon white corners*
+- **Что изменено:**
+  - `Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp`:
+    - Устранён баг с белыми уголками вокруг иконок чатов: теперь базовый прямоугольник строки чата всегда заполняется фоновым цветом `p.fillRect(geometry, context.currentBg)`, предотвращая просвечивание белой подложки родительского окна за скруглёнными углами.
+    - Активные и выбранные чаты выделяются аккуратным скруглённым элементом с настраиваемым радиусом и мягкой тенью.
+  - `custom_patches/lib_ui/ui/widgets/elastic_scroll.h` & `.cpp`:
+    - Добавлен эффект размытия в движении (**Motion Blur** / имитация высокой герцовки экрана): легковесный оверлей `MotionBlurOverlay` накладывает направленные шлейфы и билатеральное смазывание в направлении вектора скорости прокрутки (`SmoothPixmapTransform`).
+    - Вектор скорости и прозрачность шлейфов затухают при остановке прокрутки, обеспечивая 100% чёткость текста в статичном состоянии.
+    - Оверлей аппаратно прозрачен для кликов мыши (`WA_TransparentForMouseEvents`) и не влияет на производительность.
+  - `custom_patches/lib_ui/ui/ui_utility.h` & `.cpp`:
+    - Добавлены функции `Ui::SetMotionBlurCallback`, `Ui::IsMotionBlurEnabled()` и `Ui::MotionBlurIntensity()`.
+  - `Telegram/SourceFiles/custom_features/custom_settings.hpp`:
+    - Добавлены параметры `enableMotionBlur` (включено по умолчанию) и `motionBlurIntensity` (1-10, по умолчанию 5) с автоматическим сохранением и загрузкой из конфигурации.
+  - `Telegram/SourceFiles/settings/sections/settings_custom.cpp`:
+    - В раздел «Кастомные функции» добавлены чекбокс «Размытие в движении (Motion Blur)» и слайдер «Интенсивность Motion Blur» (от 1 до 10).
+  - `Telegram/SourceFiles/core/application.cpp`:
+    - Зарегистрированы коллбэки для динамической связи `ElasticScroll` с конфигурацией клиента.
+
+---
+
 ### [Коммит `55f3700`] — 12 сентября 2026 г.
 - **Сообщение коммита:** *fix(build): fix QPainter rounded rect in dialogs_layout and include call_delayed in main_session*
 - **Что изменено:**

@@ -507,6 +507,9 @@ void Application::startSettingsAndBackground() {
 	Ui::SetSmoothScrollingCallback([] {
 		return CustomFeatures::GetConfig().smoothScrolling;
 	});
+	Ui::SetMotionBlurCallback(
+		[] { return CustomFeatures::GetConfig().enableMotionBlur; },
+		[] { return CustomFeatures::GetConfig().motionBlurIntensity; });
 }
 
 void Application::checkSystemDarkMode() {

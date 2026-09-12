@@ -424,6 +424,55 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
+	// Размытие в движении (Motion Blur)
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/motion_blur"_q,
+		.title = rpl::single(u"Размытие в движении (Motion Blur)"_q),
+		.checked = CustomFeatures::GetConfig().enableMotionBlur,
+		.keywords = { u"motion"_q, u"blur"_q, u"smooth"_q, u"animation"_q, u"hz"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enableMotionBlur = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+
+	// Интенсивность Motion Blur
+	builder.addSubsectionTitle(rpl::single(u"Интенсивность Motion Blur"_q));
+	builder.add([](const WidgetContext &ctx) {
+		auto result = MakeSliderWithLabel(
+			ctx.container.get(),
+			st::settingsScale,
+			st::settingsScaleLabel,
+			st::normalFont->spacew * 2,
+			st::settingsScaleLabel.style.font->width("10 / 10"),
+			false);
+
+		const auto slider = result.slider;
+		const auto label = result.label;
+
+		const int currentIntensity = CustomFeatures::GetConfig().motionBlurIntensity;
+		slider->setPseudoDiscrete(
+			10,
+			[](int val) { return val + 1; },
+			currentIntensity,
+			[=](int val) {
+				CustomFeatures::GetConfig().motionBlurIntensity = val;
+				CustomFeatures::GetConfig().save();
+				label->setText(QString::number(val) + u" / 10"_q);
+			});
+
+		label->setText(QString::number(currentIntensity) + u" / 10"_q);
+
+		return SectionBuilder::WidgetToAdd{
+			.widget = std::move(result.widget),
+			.margin = st::settingsScalePadding,
+		};
+	});
+
+	builder.addSkip(st::settingsCheckboxesSkip);
+
 	builder.addDividerText(rpl::single(u"Перезапустите Telegram для применения изменений скругления углов."_q));
 });
 
