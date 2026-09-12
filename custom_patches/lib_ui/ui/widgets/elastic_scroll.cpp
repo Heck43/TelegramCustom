@@ -407,135 +407,8 @@ bool ElasticScrollBar::eventHook(QEvent *e) {
 	return RpWidget::eventHook(e);
 }
 
-class ElasticScroll::MotionBlurOverlay final : public RpWidget {
-public:
-	explicit MotionBlurOverlay(QWidget *parent) : RpWidget(parent) {
-		setAttribute(Qt::WA_TransparentForMouseEvents);
-		setAttribute(Qt::WA_NoSystemBackground);
-		setAttribute(Qt::WA_TranslucentBackground);
-		hide();
-	}
-
-	void setBlurData(
-			QPixmap snapshot,
-			int offset,
-			float64 velocity,
-			bool vertical,
-			int intensity) {
-		_snapshot = std::move(snapshot);
-		_offset = offset;
-		_velocity = velocity;
-		_vertical = vertical;
-		_intensity = intensity;
-		if (_snapshot.isNull() || std::abs(_velocity) < 0.5) {
-			if (!isHidden()) {
-				hide();
-			}
-		} else {
-			if (isHidden()) {
-				show();
-			}
-			update();
-		}
-	}
-
-	void clearBlur() {
-		_snapshot = QPixmap();
-		_offset = 0;
-		_velocity = 0.;
-		if (!isHidden()) {
-			hide();
-		}
-	}
-
-protected:
-	void paintEvent(QPaintEvent *e) override {
-		if (_snapshot.isNull() || std::abs(_velocity) < 0.5) {
-			return;
-		}
-		const auto intensityClamped = std::clamp(_intensity, 1, 10);
-		const auto normIntensity = intensityClamped / 10.0;
-		const auto speed = std::abs(_velocity);
-		const auto speedFactor = std::clamp(speed / 24.0, 0.0, 1.0);
-		const auto baseAlpha = 0.38 * normIntensity * speedFactor;
-		if (baseAlpha < 0.01) {
-			return;
-		}
-
-		QPainter p(this);
-		p.setRenderHint(QPainter::SmoothPixmapTransform);
-
-		const auto step1 = int(base::SafeRound(_offset * 0.55));
-		const auto step2 = int(base::SafeRound(_offset * 1.0));
-
-		if (std::abs(step2) > 0) {
-			p.setOpacity(baseAlpha * 0.40);
-			if (_vertical) {
-				p.drawPixmap(0, step2, _snapshot);
-			} else {
-				p.drawPixmap(step2, 0, _snapshot);
-			}
-		}
-
-		if (std::abs(step1) > 0) {
-			p.setOpacity(baseAlpha * 0.65);
-			if (_vertical) {
-				p.drawPixmap(0, step1, _snapshot);
-			} else {
-				p.drawPixmap(step1, 0, _snapshot);
-			}
-		}
-
-		const auto stretch = std::clamp(int(speed * 0.25 * normIntensity), 1, 6);
-		if (stretch > 1) {
-			p.setOpacity(baseAlpha * 0.30);
-			const auto ratio = style::DevicePixelRatio();
-			const auto sw = _snapshot.width() / ratio;
-			const auto sh = _snapshot.height() / ratio;
-			if (_vertical) {
-				const auto yOffset = (_velocity > 0) ? -stretch : stretch;
-				p.drawPixmap(
-					QRect(0, yOffset, width(), height() + stretch),
-					_snapshot,
-					QRect(0, 0, sw, sh));
-			} else {
-				const auto xOffset = (_velocity > 0) ? -stretch : stretch;
-				p.drawPixmap(
-					QRect(xOffset, 0, width() + stretch, height()),
-					_snapshot,
-					QRect(0, 0, sw, sh));
-			}
-		}
-	}
-
-private:
-	QPixmap _snapshot;
-	int _offset = 0;
-	float64 _velocity = 0.;
-	bool _vertical = true;
-	int _intensity = 5;
-};
-
 void ElasticScroll::stopSmoothScroll() {
 	_smoothScrollAnimation.stop();
-	if (_motionBlurOverlay) {
-		_motionBlurOverlay->clearBlur();
-	}
-	_motionBlurSnapshot = QPixmap();
-}
-
-QPixmap ElasticScroll::grabVisibleContent() {
-	if (!_widget || !_widget->isVisible() || width() <= 0 || height() <= 0) {
-		return QPixmap();
-	}
-	const auto visibleRect = _vertical
-		? QRect(0, _state.visibleFrom + _contentBottomInset, width(), height())
-		: QRect(_state.visibleFrom + _contentBottomInset, 0, width(), height());
-	const auto boundedRect = visibleRect.intersected(_widget->rect());
-	if (boundedRect.isEmpty()) {
-		return QPixmap();
-	}
-	return _widget->grab(boundedRect);
 }
 
 ElasticScroll::ElasticScroll(
@@ -590,7 +463,6 @@ ElasticScroll::ElasticScroll(
 }
 
 ElasticScroll::~ElasticScroll() {
-	base::take(_motionBlurOverlay);
 	// Destroy the _bar cleanly (keeping _bar == nullptr) to avoid a crash:
 	//
 	// _bar destructor may send LeaveEvent to ElasticScroll,
@@ -1210,19 +1082,12 @@ bool ElasticScroll::handleWheelEvent(not_null<QWheelEvent*> e, bool touch) {
 				_smoothScrollTarget = willScrollTo(desired);
 				if (_smoothScrollTarget != _state.visibleFrom) {
 					const auto startPos = _state.visibleFrom;
-					if (IsMotionBlurEnabled()) {
-						if (!_motionBlurOverlay) {
-							_motionBlurOverlay = std::make_unique<MotionBlurOverlay>(this);
-							_motionBlurOverlay->setGeometry(rect());
-						}
-						_motionBlurOverlay->raise();
-						if (_bar) {
-							_bar->raise();
-						}
-						_motionBlurSnapshotPos = startPos;
-						_motionBlurSnapshot = grabVisibleContent();
-						_lastMotionScrollPos = float64(startPos);
-					}
+					const auto intensity = IsMotionBlurEnabled() ? MotionBlurIntensity() : 5;
+					const auto distance = std::abs(_smoothScrollTarget - startPos);
+					const auto duration = std::clamp(
+						130 + intensity * 15 + int(std::min(distance, 400) * 0.15),
+						140,
+						320);
 					_smoothScrollAnimation.start(
 						[=](float64 val) {
 							if (!weak) {
@@ -1230,35 +1095,17 @@ bool ElasticScroll::handleWheelEvent(not_null<QWheelEvent*> e, bool touch) {
 							}
 							const auto rounded = int(base::SafeRound(val));
 							if (rounded != _state.visibleFrom) {
-								tryScrollTo(rounded);
-							}
-							if (IsMotionBlurEnabled() && _motionBlurOverlay) {
-								const auto velocity = val - _lastMotionScrollPos;
-								_lastMotionScrollPos = val;
-								const auto offset = _motionBlurSnapshotPos - rounded;
-								if (std::abs(offset) > 36 || _motionBlurSnapshot.isNull()) {
-									_motionBlurSnapshotPos = rounded;
-									_motionBlurSnapshot = grabVisibleContent();
-								}
-								_motionBlurOverlay->setBlurData(
-									_motionBlurSnapshot,
-									_motionBlurSnapshotPos - rounded,
-									velocity,
-									_vertical,
-									MotionBlurIntensity());
+								tryScrollTo(rounded, false);
 							}
 						},
 						startPos,
 						_smoothScrollTarget,
-						180,
+						duration,
 						anim::easeOutCubic);
 					_smoothScrollAnimation.setFinishedCallback([=] {
 						if (weak) {
 							_movement = Movement::None;
-							if (_motionBlurOverlay) {
-								_motionBlurOverlay->clearBlur();
-							}
-							_motionBlurSnapshot = QPixmap();
+							SendSynteticMouseEvent(this, QEvent::MouseMove, Qt::NoButton);
 						}
 					});
 					_movement = Movement::Progress;
@@ -1946,11 +1793,6 @@ void ElasticScroll::setContentBottomInset(int inset) {
 }
 
 void ElasticScroll::resizeEvent(QResizeEvent *e) {
-	if (_motionBlurOverlay) {
-		_motionBlurOverlay->setGeometry(rect());
-		_motionBlurOverlay->clearBlur();
-		_motionBlurSnapshot = QPixmap();
-	}
 	const auto rtl = (layoutDirection() == Qt::RightToLeft);
 	_bar->setGeometry(_vertical
 		? QRect(

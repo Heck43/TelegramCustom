@@ -424,10 +424,10 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	// Размытие в движении (Motion Blur)
+	// Имитация высокой герцовки (Fluid Scroll)
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/motion_blur"_q,
-		.title = rpl::single(u"Размытие в движении (Motion Blur)"_q),
+		.title = rpl::single(u"Имитация высокой герцовки (Fluid Scroll)"_q),
 		.checked = CustomFeatures::GetConfig().enableMotionBlur,
 		.keywords = { u"motion"_q, u"blur"_q, u"smooth"_q, u"animation"_q, u"hz"_q },
 	})) {
@@ -438,8 +438,8 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	// Интенсивность Motion Blur
-	builder.addSubsectionTitle(rpl::single(u"Интенсивность Motion Blur"_q));
+	// Плавность и инерция прокрутки
+	builder.addSubsectionTitle(rpl::single(u"Плавность и инерция прокрутки"_q));
 	builder.add([](const WidgetContext &ctx) {
 		auto result = MakeSliderWithLabel(
 			ctx.container.get(),
@@ -472,6 +472,7 @@ const auto kMeta = BuildHelper({
 	});
 
 	builder.addSkip(st::settingsCheckboxesSkip);
+	builder.addDividerText(rpl::single(u"Адаптивная инерция прокрутки колесиком мыши (эффект 120-240 Гц). Устраняет рывки и сохраняет идеальную чёткость текста без просадок FPS."_q));
 
 	builder.addDividerText(rpl::single(u"Перезапустите Telegram для применения изменений скругления углов."_q));
 });

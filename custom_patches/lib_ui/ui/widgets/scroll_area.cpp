@@ -878,6 +878,12 @@ bool ScrollArea::viewportEvent(QEvent *e) {
 						bar->maximum());
 					if (_smoothScrollTarget != bar->value()) {
 						const auto startPos = bar->value();
+						const auto intensity = IsMotionBlurEnabled() ? MotionBlurIntensity() : 5;
+						const auto distance = std::abs(_smoothScrollTarget - startPos);
+						const auto duration = std::clamp(
+							130 + intensity * 15 + int(std::min(distance, 400) * 0.15),
+							140,
+							320);
 						_smoothScrollAnimation.start(
 							[=](float64 val) {
 								if (!weak) {
@@ -890,7 +896,7 @@ bool ScrollArea::viewportEvent(QEvent *e) {
 							},
 							startPos,
 							_smoothScrollTarget,
-							180,
+							duration,
 							anim::easeOutCubic);
 					} else {
 						_smoothScrollAnimation.stop();

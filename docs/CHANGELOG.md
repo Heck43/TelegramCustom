@@ -4,6 +4,20 @@
 
 ---
 
+### [Коммит `5cc119a`] — 13 сентября 2026 г.
+- **Сообщение коммита:** *perf(scroll): Replace laggy Motion Blur raster capture with fluid high-Hz momentum scrolling and eliminate background darkening*
+- **Что изменено:**
+  - `custom_patches/lib_ui/ui/widgets/elastic_scroll.h` & `.cpp`:
+    - Полностью удалён `MotionBlurOverlay` и захват `_widget->grab()` из цикла анимации: устранены просадки FPS и лаги, а также потемнение фона из-за альфа-наложения растровых скриншотов.
+    - Реализована плавная адаптивная кинематика прокрутки (эффект высокой герцовки 120-240 Гц): длительность и инерция динамически масштабируются в зависимости от расстояния и слайдера интенсивности.
+    - Отключена отправка избыточных `MouseMove` событий на каждом кадре анимации (`tryScrollTo(rounded, false)`), отправка вызывается единожды при завершении скольжения.
+  - `custom_patches/lib_ui/ui/widgets/scroll_area.cpp`:
+    - Добавлено адаптивное вычисление длительности анимации для стандартных областей прокрутки.
+  - `Telegram/SourceFiles/settings/sections/settings_custom.cpp`:
+    - Обновлены названия и подсказки в настройках: «Имитация высокой герцовки (Fluid Scroll)» и «Плавность и инерция прокрутки».
+
+---
+
 ### [Коммит `00ccda7`] — 13 сентября 2026 г.
 - **Сообщение коммита:** *feat: Add Motion Blur effect with configurable intensity and fix chat icon white corners*
 - **Что изменено:**
