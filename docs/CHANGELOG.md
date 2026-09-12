@@ -4,7 +4,18 @@
 
 ---
 
-### [Текущий коммит] — 12 сентября 2026 г.
+### [Коммит `55f3700`] — 12 сентября 2026 г.
+- **Сообщение коммита:** *fix(build): fix QPainter rounded rect in dialogs_layout and include call_delayed in main_session*
+- **Что изменено:**
+  - `Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp`:
+    - Исправлена ошибка компиляции `error C2440` / `error C2665`: заменены некорректные вызовы `Ui::PrepareCornerPixmaps` и `style::color(0, 0, 0, 40)` на нативный метод отрисовки `QPainter::drawRoundedRect` с антиалиасингом `QPainter::Antialiasing` и полупрозрачной тенью `QColor(0, 0, 0, 40)`.
+  - `Telegram/SourceFiles/main/main_session.cpp`:
+    - Добавлен `#include "base/call_delayed.h"`.
+    - Типизирован аргумент задержки: `base::call_delayed(crl::time(500), [=] { ... })` — устранена ошибка C2039/C3861.
+
+---
+
+### [Коммит `c869ba9`] — 12 сентября 2026 г.
 - **Сообщение коммита:** *feat: Implement true smooth scrolling in ElasticScroll and ScrollArea with easeOutCubic*
 - **Что изменено:**
   - `custom_patches/lib_ui/ui/widgets/elastic_scroll.h` & `.cpp`:
