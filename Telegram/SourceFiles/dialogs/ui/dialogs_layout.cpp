@@ -494,20 +494,23 @@ void PaintRow(
 	if (CustomFeatures::GetConfig().enableSoftShadows && customRadius > 0) {
 		// Рисуем тень под элементом
 		p.save();
+		p.setRenderHint(QPainter::Antialiasing);
 		p.setOpacity(0.15);
+		p.setPen(Qt::NoPen);
+		p.setBrush(QColor(0, 0, 0, 40));
 		const auto shadowRect = geometry.adjusted(1, 1, -1, 3);
-		const auto shadowCorners = Ui::PrepareCornerPixmaps(
-			customRadius, 
-			style::color(0, 0, 0, 40), 
-			nullptr);
-		Ui::FillRoundRect(p, shadowRect, style::color(0, 0, 0, 40), shadowCorners);
+		p.drawRoundedRect(shadowRect, customRadius, customRadius);
 		p.restore();
 	}
 	
 	if (customRadius > 0 && customRadius <= 24) {
 		// Use rounded corners
-		const auto corners = Ui::PrepareCornerPixmaps(customRadius, bg, nullptr);
-		Ui::FillRoundRect(p, geometry, bg, corners);
+		p.save();
+		p.setRenderHint(QPainter::Antialiasing);
+		p.setPen(Qt::NoPen);
+		p.setBrush(bg);
+		p.drawRoundedRect(geometry, customRadius, customRadius);
+		p.restore();
 	} else {
 		// Standard square background
 		p.fillRect(geometry, bg);

@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 
 #include "apiwrap.h"
+#include "base/call_delayed.h"
 #include "api/api_peer_colors.h"
 #include "api/api_updates.h"
 #include "api/api_user_privacy.h"
@@ -227,7 +228,7 @@ Session::Session(
 		// CUSTOM: Delayed sticker loading for faster startup
 		// Load stickers in background after UI is ready
 		crl::on_main([=] {
-			base::call_delayed(500, [=] {
+			base::call_delayed(crl::time(500), [=] {
 				local().readInstalledStickers();
 				local().readInstalledMasks();
 				local().readInstalledCustomEmoji();
