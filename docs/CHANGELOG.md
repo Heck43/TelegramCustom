@@ -4,6 +4,25 @@
 
 ---
 
+### [Текущий коммит] — 12 сентября 2026 г.
+- **Сообщение коммита:** *feat: Implement true smooth scrolling in ElasticScroll and ScrollArea with easeOutCubic*
+- **Что изменено:**
+  - `custom_patches/lib_ui/ui/widgets/elastic_scroll.h` & `.cpp`:
+    - Интегрирована плавная анимация `Ui::Animations::Simple _smoothScrollAnimation` с кубической интерполяцией `anim::easeOutCubic` (180 мс) для событий колеса мыши `Qt::NoScrollPhase`.
+    - Реализована динамическая смена направления движения без задержки и рывков при смене направления вращения колесика.
+    - Автоматическая остановка анимации при ручном перемещении ползунка скроллбара, тач-событиях, нажатиях клавиш клавиатуры или вызовах `scrollTo`.
+    - Поддержка фонового дозапроса сообщений снизу (`requestBottomContent`).
+  - `custom_patches/lib_ui/ui/widgets/scroll_area.h` & `.cpp`:
+    - Добавлена плавная прокрутка для всех стандартных `ScrollArea` (меню настроек, левая панель, эмодзи-пикер).
+  - `custom_patches/lib_ui/ui/ui_utility.h` & `.cpp`:
+    - Добавлены функции `Ui::SetSmoothScrollingCallback` и `Ui::IsSmoothScrollingEnabled()`.
+  - `Telegram/SourceFiles/core/application.cpp`:
+    - Зарегистрирован коллбэк для чтения настройки `CustomFeatures::GetConfig().smoothScrolling`.
+  - `.github/workflows/build_custom_win.yml`:
+    - Добавлено копирование файлов из `custom_patches/lib_ui` в собираемый каталог tdesktop.
+
+---
+
 ### [Коммит `02b0b7f`] — 27 августа 2026 г.
 - **Сообщение коммита:** *Direct MTPmessages_GetHistory loading into blocks, reactive media auto-reload and smooth upscaling*
 - **Что изменено:**

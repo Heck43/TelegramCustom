@@ -1,6 +1,7 @@
 #pragma once
 
 #include "custom_features/custom_settings.hpp"
+#include "ui/ui_utility.h"
 #include <QPropertyAnimation>
 #include <QScrollBar>
 #include <QWheelEvent>
@@ -9,9 +10,13 @@
 namespace CustomFeatures {
 namespace SmoothScroll {
 
+inline bool IsEnabled() {
+    return Ui::IsSmoothScrollingEnabled();
+}
+
 // Применить плавную прокрутку к QScrollBar
 inline void ApplySmoothScrolling(QScrollBar* scrollBar, int delta) {
-    if (!scrollBar || !CustomFeatures::GetConfig().smoothScrolling) {
+    if (!scrollBar || !IsEnabled()) {
         // Если плавная прокрутка выключена, используем стандартное поведение
         if (scrollBar) {
             scrollBar->setValue(scrollBar->value() - delta);
