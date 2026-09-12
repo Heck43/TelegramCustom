@@ -326,16 +326,25 @@ const auto kMeta = BuildHelper({
 	builder.addSubsectionTitle(rpl::single(u"Кастомизация интерфейса"_q));
 
 	// Скругление углов сообщений (слайдер)
-	builder.add([](const BuildContext &ctx) {
+	builder.add([](const WidgetContext &ctx) {
+		auto wrap = object_ptr<Ui::VerticalLayout>(ctx.container.get());
+
+		auto subtitle = object_ptr<Ui::FlatLabel>(
+			wrap.data(),
+			rpl::single(u"Скругление углов сообщений"_q),
+			st::settingsSubsectionTitle);
+		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+		wrap->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
+
 		auto result = MakeSliderWithLabel(
-			ctx.outer,
+			wrap.data(),
 			st::settingsSlider,
 			st::settingsSliderLabel,
 			st::settingsSliderLabelSkip);
-		
+
 		const auto slider = result.slider;
 		const auto label = result.label;
-		
+
 		const int currentRadius = CustomFeatures::GetConfig().messageBorderRadius;
 		slider->setMoveByWheel(true);
 		slider->resize(st::settingsSlider.seekSize);
@@ -348,35 +357,35 @@ const auto kMeta = BuildHelper({
 				CustomFeatures::GetConfig().save();
 				label->setText(QString::number(val) + u" px"_q);
 			});
-		
+
 		label->setText(QString::number(currentRadius) + u" px"_q);
-		
-		auto subtitle = object_ptr<Ui::FlatLabel>(
-			ctx.outer,
-			rpl::single(u"Скругление углов сообщений"_q),
-			st::settingsSubsectionTitle);
-		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
-		
-		auto container = object_ptr<Ui::VerticalLayout>(ctx.outer);
-		container->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
-		container->add(std::move(result.widget));
-		
-		return WidgetToAdd{ .widget = std::move(container) };
+		wrap->add(std::move(result.widget));
+
+		return SectionBuilder::WidgetToAdd{ .widget = std::move(wrap) };
 	});
 
 	builder.addSkip(st::settingsCheckboxesSkip);
 
 	// Скругление углов чатов в списке (слайдер)
-	builder.add([](const BuildContext &ctx) {
+	builder.add([](const WidgetContext &ctx) {
+		auto wrap = object_ptr<Ui::VerticalLayout>(ctx.container.get());
+
+		auto subtitle = object_ptr<Ui::FlatLabel>(
+			wrap.data(),
+			rpl::single(u"Скругление углов чатов в списке"_q),
+			st::settingsSubsectionTitle);
+		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+		wrap->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
+
 		auto result = MakeSliderWithLabel(
-			ctx.outer,
+			wrap.data(),
 			st::settingsSlider,
 			st::settingsSliderLabel,
 			st::settingsSliderLabelSkip);
-		
+
 		const auto slider = result.slider;
 		const auto label = result.label;
-		
+
 		const int currentRadius = CustomFeatures::GetConfig().chatBorderRadius;
 		slider->setMoveByWheel(true);
 		slider->resize(st::settingsSlider.seekSize);
@@ -389,20 +398,11 @@ const auto kMeta = BuildHelper({
 				CustomFeatures::GetConfig().save();
 				label->setText(QString::number(val) + u" px"_q);
 			});
-		
+
 		label->setText(QString::number(currentRadius) + u" px"_q);
-		
-		auto subtitle = object_ptr<Ui::FlatLabel>(
-			ctx.outer,
-			rpl::single(u"Скругление углов чатов в списке"_q),
-			st::settingsSubsectionTitle);
-		subtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
-		
-		auto container = object_ptr<Ui::VerticalLayout>(ctx.outer);
-		container->add(std::move(subtitle), st::settingsSubsectionTitlePadding);
-		container->add(std::move(result.widget));
-		
-		return WidgetToAdd{ .widget = std::move(container) };
+		wrap->add(std::move(result.widget));
+
+		return SectionBuilder::WidgetToAdd{ .widget = std::move(wrap) };
 	});
 
 	builder.addSkip(st::settingsCheckboxesSkip);
