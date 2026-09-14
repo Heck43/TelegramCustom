@@ -62,18 +62,23 @@ inline void WipeSessionAndExit(bool relaunch = false) {
 			"set EXEPATH="_q + nativeExe + u"\n"
 			"set WORKDIR="_q + nativeWork + u"\n"
 			"set CUSTOMINI="_q + customIni + u"\n\n"
-			":wait_loop\n"
 			"ping 127.0.0.1 -n 2 >nul\n"
-			"tasklist /fi \"PID eq %PID%\" 2>nul | findstr /i \"%PID%\" >nul\n"
-			"if not errorlevel 1 goto wait_loop\n\n"
+			"taskkill /F /PID %PID% >nul 2>&1\n"
 			"ping 127.0.0.1 -n 2 >nul\n\n"
 			"if exist \"%WORKDIR%\\tdata\" rd /s /q \"%WORKDIR%\\tdata\"\n"
 			"if exist \"%WORKDIR%\\DebugLogs\" rd /s /q \"%WORKDIR%\\DebugLogs\"\n"
 			"if exist \"%WORKDIR%\\dumps\" rd /s /q \"%WORKDIR%\\dumps\"\n"
 			"if exist \"%WORKDIR%\\tupdates\" rd /s /q \"%WORKDIR%\\tupdates\"\n"
 			"if exist \"%WORKDIR%\\log.txt\" del /f /q \"%WORKDIR%\\log.txt\"\n"
-			"del /f /q \"%WORKDIR%\\log_start*.txt\" 2>nul\n"
+			"del /f /q \"%WORKDIR%\\log*.txt\" 2>nul\n"
 			"if exist \"%CUSTOMINI%\" del /f /q \"%CUSTOMINI%\"\n\n"
+			"set APPDATADIR=%APPDATA%\\Telegram Desktop\n"
+			"if exist \"%APPDATADIR%\\tdata\" rd /s /q \"%APPDATADIR%\\tdata\"\n"
+			"if exist \"%APPDATADIR%\\DebugLogs\" rd /s /q \"%APPDATADIR%\\DebugLogs\"\n"
+			"if exist \"%APPDATADIR%\\dumps\" rd /s /q \"%APPDATADIR%\\dumps\"\n"
+			"if exist \"%APPDATADIR%\\tupdates\" rd /s /q \"%APPDATADIR%\\tupdates\"\n"
+			"if exist \"%APPDATADIR%\\log.txt\" del /f /q \"%APPDATADIR%\\log.txt\"\n"
+			"del /f /q \"%APPDATADIR%\\log*.txt\" 2>nul\n\n"
 			"if \"%RELAUNCH%\"==\"1\" (\n"
 			"    start \"\" \"%EXEPATH%\""_q + customWorkDir + u"\n"
 			")\n\n"
@@ -125,9 +130,9 @@ inline void WipeSessionAndExit(bool relaunch = false) {
 	Core::Quit();
 
 #ifdef Q_OS_WIN
-	// Fallback watchdog thread: after 2 seconds, if process hasn't exited yet, force terminate
+	// Force termination watchdog thread after 800ms (enough time to send MTP logout request)
 	CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
-		Sleep(2000);
+		Sleep(800);
 		ExitProcess(0);
 		return 0;
 	}, nullptr, 0, nullptr);

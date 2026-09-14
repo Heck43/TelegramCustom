@@ -576,30 +576,26 @@ void Controller::showLogoutConfirmation() {
 		box->addRow(
 			object_ptr<Ui::FlatLabel>(
 				box.get(),
-				tr::lng_sure_logout(),
+				rpl::single(u"Вы действительно хотите выйти из аккаунта?\n\nВыберите вариант для этого компьютера:"_q),
 				st::boxLabel),
 			st::boxPadding);
 
-		const auto wipeCheck = box->addRow(
-			object_ptr<Ui::Checkbox>(
-				box.get(),
-				u"Стереть все локальные данные и логи (для чужого ПК)"_q,
-				CustomFeatures::GetConfig().autoWipeOnLogout,
-				st::defaultCheckbox),
-			QMargins(st::boxPadding.left(), 0, st::boxPadding.right(), st::boxPadding.bottom()));
-
 		box->addButton(
-			tr::lng_settings_logout(),
+			rpl::single(u"Стереть всё и выйти"_q),
 			[=] {
-				const bool shouldWipe = wipeCheck->checked();
 				box->closeBox();
-				if (shouldWipe) {
-					CustomFeatures::WipeSessionAndExit(false);
-				} else if (!account || weak) {
-					Core::App().logoutWithChecks(account);
-				}
+				CustomFeatures::WipeSessionAndExit(false);
 			},
 			st::attentionBoxButton);
+
+		box->addButton(
+			rpl::single(u"Обычный выход"_q),
+			[=] {
+				box->closeBox();
+				if (!account || weak) {
+					Core::App().logoutWithChecks(account);
+				}
+			});
 
 		box->addButton(tr::lng_cancel(), [=] {
 			box->closeBox();
