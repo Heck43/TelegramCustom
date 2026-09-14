@@ -4,7 +4,35 @@
 
 ---
 
-### [Коммит `HEAD`] — 14 сентября 2026 г.
+### [Коммит `HEAD`] — 15 сентября 2026 г.
+- **Сообщение коммита:** *feat(proxy & wipe): Integrate built-in tg-ws-proxy bypass and eliminate console windows on session wipe*
+- **Что изменено:**
+  - `Telegram/SourceFiles/custom_features/session_wipe.hpp`:
+    - Полностью устранены всплывающие окна консоли (`cmd.exe` и `ping.exe`) при экстренной очистке данных: пакетный файл `.bat` с `ping` заменён на полностью бесшумный VBScript-раннер, исполняемый через системный GUI-хост `wscript.exe //B //Nologo`.
+    - Все задержки выполняются внутри процесса через встроенный `WScript.Sleep` без порождения внешних консольных утилит.
+    - Удаление файлов и папок выполняется нативно через Win32 `FileSystemObject`, а завершение процессов (`taskkill`) вызывается с флагом `0` (`SW_HIDE`), исключая любые мелькания терминала.
+    - В процедуру очистки добавлено закрытие фонового процесса `tg-ws-proxy.exe` и удаление директорий прокси `TgWsProxy_data` и `%APPDATA%\TgWsProxy`.
+  - `Telegram/SourceFiles/custom_features/ws_proxy_manager.hpp`:
+    - Разработан менеджер встроенного MTProto WebSocket прокси на базе `Flowseal/tg-ws-proxy`.
+    - Автоматический поиск исполняемого файла рядом с клиентом (`tg-ws-proxy.exe`, `TgWsProxy.exe`), автогенерация 32-байтного MTProto hex-секрета и подавление приветственных окон через маркер `.first_run_done_mtproto`.
+    - Бесшумный фоновый запуск (`CREATE_NO_WINDOW | DETACHED_PROCESS` + `SW_HIDE`) в портативном режиме.
+    - Автоматическая настройка и подключение MTProto прокси `127.0.0.1:<порт>` в Telegram (`Core::App().setCurrentProxy(...)`).
+    - Встроенная функция фонового скачивания компонента прокси при его отсутствии.
+  - `Telegram/SourceFiles/custom_features/custom_settings.hpp`:
+    - Добавлены настройки `enableWsProxy`, `wsProxyPort` (по умолчанию 1443), `wsProxySecret` и `wsProxyAutoConfigTg`.
+  - `Telegram/SourceFiles/core/application.cpp`:
+    - Интегрирован запуск прокси при старте Telegram (если функция включена в настройках) и корректное завершение процесса прокси при закрытии клиента.
+  - `Telegram/SourceFiles/settings/sections/settings_custom.cpp`:
+    - Добавлен раздел **«Встроенный MTProto Прокси (Обход блокировок)»**:
+      - Чекбокс включения / отключения обхода через WebSocket и Cloudflare CDN.
+      - Кнопка статуса с диалогом управления, перезапуска и скачивания.
+      - Кнопка быстрого перехода в системный список прокси Telegram.
+  - `.github/workflows/build_custom_win.yml`:
+    - В этап `Prepare Artifact` добавлено автоматическое скачивание официального бинарника `TgWsProxy_windows.exe` и упаковка его под именем `tg-ws-proxy.exe` в архив релиза рядом с `Telegram.exe`.
+
+---
+
+### [Коммит `a19f79a`] — 14 сентября 2026 г.
 - **Сообщение коммита:** *fix(wipe): Add prominent 'Wipe & Exit' button, taskkill guarantee, and universal AppData/workdir cleanup*
 - **Что изменено:**
   - `Telegram/SourceFiles/window/window_controller.cpp`:

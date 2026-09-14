@@ -62,6 +62,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "custom_features/custom_settings.hpp"
 #include "custom_features/session_wipe.hpp"
+#include "custom_features/ws_proxy_manager.hpp"
 #include "media/view/media_view_overlay_widget.h"
 #include "media/view/media_view_open_common.h"
 #include "mtproto/mtproto_dc_options.h"
@@ -210,6 +211,10 @@ Application::Application()
 			UpdateChecker().setMtproto(session);
 		}
 	}, _lifetime);
+
+	if (CustomFeatures::GetConfig().enableWsProxy) {
+		CustomFeatures::WsProxyManager::Instance().startProxy();
+	}
 }
 
 void Application::closeAdditionalWindows() {
@@ -224,6 +229,8 @@ void Application::closeAdditionalWindows() {
 }
 
 Application::~Application() {
+	CustomFeatures::WsProxyManager::Instance().stopProxy();
+
 	if (_saveSettingsTimer && _saveSettingsTimer->isActive()) {
 		Local::writeSettings();
 	}

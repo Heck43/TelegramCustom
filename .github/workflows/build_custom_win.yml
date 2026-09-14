@@ -177,11 +177,30 @@ jobs:
           cmake --build ..\out --config Debug --parallel 4
 
       - name: Prepare Artifact
+        shell: pwsh
         run: |
-          set OUT=%TBUILD%\TelegramCustom\out\Debug
-          mkdir %GITHUB_WORKSPACE%\artifact
-          copy "%OUT%\Telegram.exe" "%GITHUB_WORKSPACE%\artifact\"
-          copy "%OUT%\Updater.exe" "%GITHUB_WORKSPACE%\artifact\" || exit 0
+          $out = "$env:TBUILD\TelegramCustom\out\Debug"
+          $artifact = "$env:GITHUB_WORKSPACE\artifact"
+          New-Item -ItemType Directory -Force -Path $artifact
+          
+          # Download official tg-ws-proxy binary (Flowseal)
+          $proxyUrl = "https://github.com/Flowseal/tg-ws-proxy/releases/download/v1.10.2/TgWsProxy_windows.exe"
+          $proxyOut = "$out\tg-ws-proxy.exe"
+          $proxyArtifact = "$artifact\tg-ws-proxy.exe"
+          Write-Host "Downloading tg-ws-proxy from $proxyUrl..."
+          try {
+              Invoke-WebRequest -Uri $proxyUrl -OutFile $proxyOut
+              Copy-Item -Force $proxyOut $proxyArtifact
+              Write-Host "[✓] tg-ws-proxy successfully bundled!"
+          } catch {
+              Write-Warning "Failed to download tg-ws-proxy: $_"
+          }
+          
+          Copy-Item -Force "$out\Telegram.exe" "$artifact\"
+          if (Test-Path "$out\Updater.exe") {
+              Copy-Item -Force "$out\Updater.exe" "$artifact\"
+          }
+          Write-Host "[✓] Artifact prepared with Telegram.exe and bundled tg-ws-proxy.exe!"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

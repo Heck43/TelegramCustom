@@ -11,6 +11,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "custom_features/custom_settings.hpp"
 #include "custom_features/session_wipe.hpp"
 #include "custom_features/in_game_overlay.hpp"
+#include "custom_features/ws_proxy_manager.hpp"
+#include "boxes/connection_box.h"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
 #include "settings/settings_common_session.h"
@@ -157,6 +159,84 @@ const auto kMeta = BuildHelper({
 			}));
 		},
 		.keywords = { u"wipe"_q, u"logout"_q, u"clean"_q, u"privacy"_q, u"tdata"_q },
+	});
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Встроенный MTProto Прокси (Обход блокировок)"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/ws_proxy_enable"_q,
+		.title = rpl::single(u"Включить tg-ws-proxy (WebSocket / Cloudflare)"_q),
+		.checked = CustomFeatures::GetConfig().enableWsProxy,
+		.keywords = { u"proxy"_q, u"tg-ws-proxy"_q, u"bypass"_q, u"cloudflare"_q, u"mtproto"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().enableWsProxy = checked;
+			CustomFeatures::GetConfig().save();
+			if (checked) {
+				CustomFeatures::WsProxyManager::Instance().startProxy();
+			} else {
+				CustomFeatures::WsProxyManager::Instance().stopProxy();
+			}
+		}, check->lifetime());
+	}
+
+	builder.addDividerText(rpl::single(
+		u"Встроенный обход замедления и блокировок Telegram на базе tg-ws-proxy (Flowseal). "
+		u"Маскирует трафик под HTTPS/WebSocket через инфраструктуру Cloudflare CDN. "
+		u"Работает полностью в фоне и автоматически подключается в клиенте."_q));
+
+	builder.addButton({
+		.title = rpl::single(u"Управление tg-ws-proxy (Статус / Перезапуск)"_q),
+		.icon = &st::menuIconNetwork,
+		.onClick = [=] {
+			if (!CustomFeatures::WsProxyManager::Instance().hasExecutable()) {
+				builder.controller()->show(Ui::MakeConfirmBox({
+					.text = u"Исполняемый файл tg-ws-proxy.exe не найден рядом с клиентом.\n\nСкачать его автоматически из официального репозитория Flowseal/tg-ws-proxy?"_q,
+					.confirmed = [=](Fn<void()> &&close) {
+						close();
+						CustomFeatures::WsProxyManager::Instance().downloadProxyAsync([=](bool ok, QString err) {
+							if (ok) {
+								if (CustomFeatures::GetConfig().enableWsProxy) {
+									CustomFeatures::WsProxyManager::Instance().startProxy();
+								}
+							}
+						});
+					},
+					.confirmText = u"Скачать"_q,
+					.cancelText = tr::lng_cancel(),
+				}));
+			} else {
+				builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
+					box->setTitle(rpl::single(u"Статус tg-ws-proxy"_q));
+					const auto layout = box->verticalLayout();
+					const auto exe = CustomFeatures::WsProxyManager::Instance().findProxyExecutable();
+					Ui::AddDividerText(layout, rpl::single(
+						u"Путь к файлу:\n"_q + (exe.isEmpty() ? u"Не найден"_q : exe)));
+					Ui::AddDividerText(layout, rpl::single(
+						u"Порт: "_q + QString::number(CustomFeatures::GetConfig().wsProxyPort) +
+						u"\nАдрес: 127.0.0.1\nСостояние: "_q +
+						CustomFeatures::WsProxyManager::Instance().statusString()));
+
+					box->addButton(rpl::single(u"Перезапустить"_q), [=] {
+						box->closeBox();
+						CustomFeatures::WsProxyManager::Instance().restartProxy();
+					});
+					box->addButton(tr::lng_close(), [=] { box->closeBox(); });
+				}));
+			}
+		},
+		.keywords = { u"proxy"_q, u"status"_q, u"ws"_q },
+	});
+
+	builder.addButton({
+		.title = rpl::single(u"Список прокси Telegram"_q),
+		.icon = &st::menuIconNetwork,
+		.onClick = [=] {
+			ProxiesBoxController::Show(builder.controller());
+		},
+		.keywords = { u"proxy"_q, u"settings"_q, u"list"_q },
 	});
 
 	builder.addDivider();

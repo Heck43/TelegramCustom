@@ -50,6 +50,12 @@ struct ClientConfig {
     int motionBlurIntensity = 5;           // Интенсивность Motion Blur (1-10)
     int fontSize = 14;                     // Размер шрифта (10-20px)
 
+    // 7. Встроенный tg-ws-proxy (Обход блокировок)
+    bool enableWsProxy = false;            // Включить встроенный tg-ws-proxy
+    int wsProxyPort = 1443;                // Порт MTProto прокси
+    QString wsProxySecret;                 // 32-hex MTProto секрет
+    bool wsProxyAutoConfigTg = true;       // Автоматически настраивать прокси в Telegram
+
     void load() {
         const auto path = getSettingsFilePath();
         QSettings s(path, QSettings::IniFormat);
@@ -85,6 +91,12 @@ struct ClientConfig {
         if (motionBlurIntensity < 1) motionBlurIntensity = 1;
         if (motionBlurIntensity > 10) motionBlurIntensity = 10;
         fontSize = s.value("fontSize", fontSize).toInt();
+
+        enableWsProxy = s.value("enableWsProxy", enableWsProxy).toBool();
+        wsProxyPort = s.value("wsProxyPort", wsProxyPort).toInt();
+        if (wsProxyPort <= 0 || wsProxyPort > 65535) wsProxyPort = 1443;
+        wsProxySecret = s.value("wsProxySecret", wsProxySecret).toString();
+        wsProxyAutoConfigTg = s.value("wsProxyAutoConfigTg", wsProxyAutoConfigTg).toBool();
     }
 
     void save() const {
@@ -120,6 +132,11 @@ struct ClientConfig {
         s.setValue("enableMotionBlur", enableMotionBlur);
         s.setValue("motionBlurIntensity", motionBlurIntensity);
         s.setValue("fontSize", fontSize);
+
+        s.setValue("enableWsProxy", enableWsProxy);
+        s.setValue("wsProxyPort", wsProxyPort);
+        s.setValue("wsProxySecret", wsProxySecret);
+        s.setValue("wsProxyAutoConfigTg", wsProxyAutoConfigTg);
         s.sync();
     }
 

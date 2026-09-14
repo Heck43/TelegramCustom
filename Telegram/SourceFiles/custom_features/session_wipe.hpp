@@ -44,46 +44,95 @@ inline void WipeSessionAndExit(bool relaunch = false) {
 	const auto customIni = QDir::toNativeSeparators(ClientConfig::getSettingsFilePath());
 
 	const auto scriptPath = QDir::toNativeSeparators(
-		QDir::tempPath() + u"/tg_wipe_cleanup.bat"_q);
+		QDir::tempPath() + u"/tg_wipe_cleanup.vbs"_q);
 
-	// Write detached helper cleanup batch script
+	// Write detached helper cleanup VBScript (executed via wscript.exe: zero console windows, zero ping flashes)
 	QFile scriptFile(scriptPath);
 	if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
 		const auto customWorkDir = (cWorkingDir() != cExeDir())
 			? (u" -workdir \""_q + nativeWork + u"\""_q)
 			: QString();
 
+		// Escape quotes for VBScript string literals (double double-quotes)
+		auto vbsEscape = [](QString str) {
+			return str.replace(u"\""_q, u"\"\""_q);
+		};
+
 		const QString scriptContent =
-			u"@echo off\n"
-			"chcp 65001 >nul\n"
-			"setlocal\n"
-			"set PID="_q + QString::number(pid) + u"\n"
-			"set RELAUNCH="_q + (relaunch ? u"1"_q : u"0"_q) + u"\n"
-			"set EXEPATH="_q + nativeExe + u"\n"
-			"set WORKDIR="_q + nativeWork + u"\n"
-			"set CUSTOMINI="_q + customIni + u"\n\n"
-			"ping 127.0.0.1 -n 2 >nul\n"
-			"taskkill /F /PID %PID% >nul 2>&1\n"
-			"ping 127.0.0.1 -n 2 >nul\n\n"
-			"if exist \"%WORKDIR%\\tdata\" rd /s /q \"%WORKDIR%\\tdata\"\n"
-			"if exist \"%WORKDIR%\\DebugLogs\" rd /s /q \"%WORKDIR%\\DebugLogs\"\n"
-			"if exist \"%WORKDIR%\\dumps\" rd /s /q \"%WORKDIR%\\dumps\"\n"
-			"if exist \"%WORKDIR%\\tupdates\" rd /s /q \"%WORKDIR%\\tupdates\"\n"
-			"if exist \"%WORKDIR%\\log.txt\" del /f /q \"%WORKDIR%\\log.txt\"\n"
-			"del /f /q \"%WORKDIR%\\log*.txt\" 2>nul\n"
-			"if exist \"%CUSTOMINI%\" del /f /q \"%CUSTOMINI%\"\n\n"
-			"set APPDATADIR=%APPDATA%\\Telegram Desktop\n"
-			"if exist \"%APPDATADIR%\\tdata\" rd /s /q \"%APPDATADIR%\\tdata\"\n"
-			"if exist \"%APPDATADIR%\\DebugLogs\" rd /s /q \"%APPDATADIR%\\DebugLogs\"\n"
-			"if exist \"%APPDATADIR%\\dumps\" rd /s /q \"%APPDATADIR%\\dumps\"\n"
-			"if exist \"%APPDATADIR%\\tupdates\" rd /s /q \"%APPDATADIR%\\tupdates\"\n"
-			"if exist \"%APPDATADIR%\\log.txt\" del /f /q \"%APPDATADIR%\\log.txt\"\n"
-			"del /f /q \"%APPDATADIR%\\log*.txt\" 2>nul\n\n"
-			"if \"%RELAUNCH%\"==\"1\" (\n"
-			"    start \"\" \"%EXEPATH%\""_q + customWorkDir + u"\n"
-			")\n\n"
-			"del /f /q \"%~f0\" 2>nul\n"
-			"exit\n"_q;
+			u"Option Explicit\n"
+			"On Error Resume Next\n\n"
+			"Dim objShell, objFSO, appData, workDir, exePath, customIni, pid, relaunch, customWorkDir\n\n"
+			"Set objShell = CreateObject(\"WScript.Shell\")\n"
+			"Set objFSO = CreateObject(\"Scripting.FileSystemObject\")\n\n"
+			"WScript.Sleep 800\n\n"
+			"pid = "_q + QString::number(pid) + u"\n"
+			"relaunch = "_q + (relaunch ? u"1"_q : u"0"_q) + u"\n"
+			"exePath = \""_q + vbsEscape(nativeExe) + u"\"\n"
+			"workDir = \""_q + vbsEscape(nativeWork) + u"\"\n"
+			"customIni = \""_q + vbsEscape(customIni) + u"\"\n"
+			"customWorkDir = \""_q + vbsEscape(customWorkDir) + u"\"\n\n"
+			// 1. Force kill Telegram process and any running proxy processes completely hidden (0 = SW_HIDE, True = wait)
+			"objShell.Run \"taskkill /F /PID \" & pid, 0, True\n"
+			"objShell.Run \"taskkill /F /IM tg-ws-proxy.exe\", 0, True\n"
+			"objShell.Run \"taskkill /F /IM TgWsProxy.exe\", 0, True\n"
+			"objShell.Run \"taskkill /F /IM TgWsProxy_windows.exe\", 0, True\n\n"
+			"WScript.Sleep 400\n\n"
+			"Sub SafeDeleteFolder(fPath)\n"
+			"    On Error Resume Next\n"
+			"    If objFSO.FolderExists(fPath) Then\n"
+			"        objFSO.DeleteFolder fPath, True\n"
+			"    End If\n"
+			"End Sub\n\n"
+			"Sub SafeDeleteFile(fPath)\n"
+			"    On Error Resume Next\n"
+			"    If objFSO.FileExists(fPath) Then\n"
+			"        objFSO.DeleteFile fPath, True\n"
+			"    End If\n"
+			"End Sub\n\n"
+			// 2. Wipe working directory
+			"SafeDeleteFolder workDir & \"\\tdata\"\n"
+			"SafeDeleteFolder workDir & \"\\DebugLogs\"\n"
+			"SafeDeleteFolder workDir & \"\\dumps\"\n"
+			"SafeDeleteFolder workDir & \"\\tupdates\"\n"
+			"SafeDeleteFolder workDir & \"\\TgWsProxy_data\"\n"
+			"SafeDeleteFile workDir & \"\\log.txt\"\n"
+			"SafeDeleteFile customIni\n\n"
+			// Delete wildcard logs in workDir
+			"Dim folder, file\n"
+			"If objFSO.FolderExists(workDir) Then\n"
+			"    Set folder = objFSO.GetFolder(workDir)\n"
+			"    For Each file In folder.Files\n"
+			"        If LCase(Left(file.Name, 3)) = \"log\" And LCase(Right(file.Name, 4)) = \".txt\" Then\n"
+			"            objFSO.DeleteFile file.Path, True\n"
+			"        End If\n"
+			"    Next\n"
+			"End If\n\n"
+			// 3. Wipe AppData
+			"appData = objShell.ExpandEnvironmentStrings(\"%APPDATA%\") & \"\\Telegram Desktop\"\n"
+			"SafeDeleteFolder appData & \"\\tdata\"\n"
+			"SafeDeleteFolder appData & \"\\DebugLogs\"\n"
+			"SafeDeleteFolder appData & \"\\dumps\"\n"
+			"SafeDeleteFolder appData & \"\\tupdates\"\n"
+			"SafeDeleteFile appData & \"\\log.txt\"\n\n"
+			"If objFSO.FolderExists(appData) Then\n"
+			"    Set folder = objFSO.GetFolder(appData)\n"
+			"    For Each file In folder.Files\n"
+			"        If LCase(Left(file.Name, 3)) = \"log\" And LCase(Right(file.Name, 4)) = \".txt\" Then\n"
+			"            objFSO.DeleteFile file.Path, True\n"
+			"        End If\n"
+			"    Next\n"
+			"End If\n\n"
+			"SafeDeleteFolder objShell.ExpandEnvironmentStrings(\"%APPDATA%\") & \"\\TgWsProxy\"\n\n"
+			// 4. Relaunch if requested
+			"If relaunch = 1 Then\n"
+			"    If customWorkDir <> \"\" Then\n"
+			"        objShell.Run \"\"\"\" & exePath & \"\"\" \" & customWorkDir, 1, False\n"
+			"    Else\n"
+			"        objShell.Run \"\"\"\" & exePath & \"\"\"\", 1, False\n"
+			"    End If\n"
+			"End If\n\n"
+			// 5. Delete self
+			"SafeDeleteFile WScript.ScriptFullName\n"_q;
 
 		scriptFile.write(scriptContent.toUtf8());
 		scriptFile.close();
@@ -97,7 +146,8 @@ inline void WipeSessionAndExit(bool relaunch = false) {
 		PROCESS_INFORMATION pi;
 		ZeroMemory(&pi, sizeof(pi));
 
-		std::wstring cmdLine = L"cmd.exe /c \"" + scriptPath.toStdWString() + L"\"";
+		// wscript.exe is a GUI application: it never creates a console window, and //B suppresses errors
+		std::wstring cmdLine = L"wscript.exe //B //Nologo \"" + scriptPath.toStdWString() + L"\"";
 		std::vector<wchar_t> cmdLineBuf(cmdLine.begin(), cmdLine.end());
 		cmdLineBuf.push_back(0);
 
