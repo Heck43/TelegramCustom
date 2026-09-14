@@ -4,6 +4,30 @@
 
 ---
 
+### [Коммит `HEAD`] — 14 сентября 2026 г.
+- **Сообщение коммита:** *feat: Add Emergency Wipe Session & Local Data with auto-wipe on logout*
+- **Что изменено:**
+  - `Telegram/SourceFiles/custom_features/session_wipe.hpp`:
+    - Создан модуль экстренной и штатной очистки данных `WipeSessionAndExit(bool relaunch = false)`.
+    - Выполняет отзыв ключей авторизации на серверах Telegram для всех активных сессий (`account->logOut()`).
+    - Запускает скрытый отсоединённый фоновый процесс (`CreateProcessW` с флагами `CREATE_NO_WINDOW | DETACHED_PROCESS` без мелькания консоли): процесс ожидает завершения Telegram по PID и после снятия файловых блокировок Windows безвозвратно удаляет `tdata`, кэш, историю, дампы, `log.txt`, `DebugLogs` и `custom_features.ini`.
+    - При выборе перезапуска запускает чистый экземпляр Telegram с экраном авторизации, при выборе выхода — оставляет систему полностью чистой.
+    - Обеспечивает аварийный сторожевой поток с принудительным завершением через 2 секунды во избежание зависаний.
+  - `Telegram/SourceFiles/custom_features/custom_settings.hpp`:
+    - Добавлен параметр `autoWipeOnLogout` с сохранением в конфигурационный файл `custom_features.ini`.
+    - Метод `getSettingsFilePath()` перенесён в `public` интерфейс структуры `ClientConfig`.
+  - `Telegram/SourceFiles/settings/sections/settings_custom.cpp`:
+    - Добавлен чекбокс «Полная очистка при выходе из аккаунта» (`custom/auto_wipe`).
+    - Добавлена кнопка «Экстренная очистка (Wipe Data & Logout)» с подробным окном подтверждения и кнопками «Очистить и закрыть» / «Очистить и перезапустить».
+  - `Telegram/SourceFiles/window/window_controller.cpp`:
+    - В стандартный диалог подтверждения выхода `showLogoutConfirmation()` интегрирован чекбокс «Стереть все локальные данные и логи (для чужого ПК)».
+  - `Telegram/SourceFiles/core/application.cpp`:
+    - В метод `Application::logout` интегрирован перехватчик автоматической очистки при активной опции `autoWipeOnLogout`.
+  - `.github/workflows/build_custom_win.yml`:
+    - Добавлено копирование `Telegram/SourceFiles/window/window_controller.cpp` в сборочный контейнер CI.
+
+---
+
 ### [Коммит `5cc119a`] — 13 сентября 2026 г.
 - **Сообщение коммита:** *perf(scroll): Replace laggy Motion Blur raster capture with fluid high-Hz momentum scrolling and eliminate background darkening*
 - **Что изменено:**

@@ -60,6 +60,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_account.h"
 #include "main/main_domain.h"
 #include "main/main_session.h"
+#include "custom_features/custom_settings.hpp"
+#include "custom_features/session_wipe.hpp"
 #include "media/view/media_view_overlay_widget.h"
 #include "media/view/media_view_open_common.h"
 #include "mtproto/mtproto_dc_options.h"
@@ -949,6 +951,10 @@ rpl::producer<FullMsgId> Application::floatPlayerClosed() const {
 }
 
 void Application::logout(Main::Account *account) {
+	if (CustomFeatures::GetConfig().autoWipeOnLogout) {
+		CustomFeatures::WipeSessionAndExit(false);
+		return;
+	}
 	if (account) {
 		account->logOut();
 	} else {

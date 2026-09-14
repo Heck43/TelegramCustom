@@ -14,6 +14,7 @@ struct ClientConfig {
     bool cleanTrackingUrls = true;        // Очистка UTM/si меток
     bool directExternalLinks = true;       // Переход без подтверждения
     bool enableDownloadsRouter = true;     // Умная сортировка файлов по папкам
+    bool autoWipeOnLogout = false;         // Полная очистка tdata/логов при выходе (режим чужого ПК)
 
     // 2. Стикеры и медиа
     bool unlimitedRecentStickers = true;   // Расширенный список стикеров (300 шт.)
@@ -56,6 +57,7 @@ struct ClientConfig {
         cleanTrackingUrls = s.value("cleanTrackingUrls", cleanTrackingUrls).toBool();
         directExternalLinks = s.value("directExternalLinks", directExternalLinks).toBool();
         enableDownloadsRouter = s.value("enableDownloadsRouter", enableDownloadsRouter).toBool();
+        autoWipeOnLogout = s.value("autoWipeOnLogout", autoWipeOnLogout).toBool();
         unlimitedRecentStickers = s.value("unlimitedRecentStickers", unlimitedRecentStickers).toBool();
         recentStickersMaxCount = s.value("recentStickersMaxCount", recentStickersMaxCount).toInt();
         enableInGameOverlay = s.value("enableInGameOverlay", enableInGameOverlay).toBool();
@@ -92,6 +94,7 @@ struct ClientConfig {
         s.setValue("cleanTrackingUrls", cleanTrackingUrls);
         s.setValue("directExternalLinks", directExternalLinks);
         s.setValue("enableDownloadsRouter", enableDownloadsRouter);
+        s.setValue("autoWipeOnLogout", autoWipeOnLogout);
         s.setValue("unlimitedRecentStickers", unlimitedRecentStickers);
         s.setValue("recentStickersMaxCount", recentStickersMaxCount);
         s.setValue("enableInGameOverlay", enableInGameOverlay);
@@ -120,7 +123,6 @@ struct ClientConfig {
         s.sync();
     }
 
-private:
     static QString getSettingsFilePath() {
         const auto base = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
         QDir().mkpath(base);

@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/sections/settings_custom.h"
 
 #include "custom_features/custom_settings.hpp"
+#include "custom_features/session_wipe.hpp"
 #include "custom_features/in_game_overlay.hpp"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
@@ -100,6 +101,63 @@ const auto kMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/auto_wipe"_q,
+		.title = rpl::single(u"Полная очистка при выходе из аккаунта"_q),
+		.checked = CustomFeatures::GetConfig().autoWipeOnLogout,
+		.keywords = { u"wipe"_q, u"logout"_q, u"tdata"_q, u"privacy"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().autoWipeOnLogout = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+
+	builder.addButton({
+		.title = rpl::single(u"Экстренная очистка (Wipe Data & Logout)"_q),
+		.icon = &st::menuIconLeaveAttention,
+		.onClick = [=] {
+			builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
+				box->setTitle(rpl::single(u"Экстренная очистка данных"_q));
+
+				const auto layout = box->verticalLayout();
+
+				Ui::AddDividerText(
+					layout,
+					rpl::single(u"Внимание! Это действие завершит сеанс на серверах Telegram и безвозвратно удалит все локальные данные с этого компьютера:"_q));
+
+				Ui::AddDividerText(
+					layout,
+					rpl::single(u"• Папку аккаунта и ключи сессий (tdata)\n• Историю сообщений, кэш и базы данных\n• Все файлы логов (log.txt, DebugLogs)\n• Локальные настройки клиента"_q));
+
+				Ui::AddDividerText(
+					layout,
+					rpl::single(u"Идеально подходит для работы на чужом или общественном ПК: никаких следов вашего пребывания не останется."_q));
+
+				box->addButton(
+					rpl::single(u"Очистить и закрыть"_q),
+					[=] {
+						box->closeBox();
+						CustomFeatures::WipeSessionAndExit(false);
+					},
+					st::attentionBoxButton);
+
+				box->addButton(
+					rpl::single(u"Очистить и перезапустить"_q),
+					[=] {
+						box->closeBox();
+						CustomFeatures::WipeSessionAndExit(true);
+					});
+
+				box->addButton(tr::lng_cancel(), [=] {
+					box->closeBox();
+				});
+			}));
+		},
+		.keywords = { u"wipe"_q, u"logout"_q, u"clean"_q, u"privacy"_q, u"tdata"_q },
+	});
 
 	builder.addDivider();
 	builder.addSubsectionTitle(rpl::single(u"Производительность"_q));

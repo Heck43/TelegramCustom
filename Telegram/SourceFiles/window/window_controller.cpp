@@ -33,6 +33,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common.h"
 #include "apiwrap.h" // ApiWrap::acceptTerms.
 #include "styles/style_layers.h"
+#include "ui/layers/generic_box.h"
+#include "ui/widgets/checkbox.h"
+#include "ui/widgets/labels.h"
+#include "custom_features/custom_settings.hpp"
+#include "custom_features/session_wipe.hpp"
 
 #include <QtGui/QWindow>
 #include <QtGui/QScreen>
@@ -565,19 +570,40 @@ void Controller::showLogoutConfirmation() {
 		? &sessionController()->session().account()
 		: nullptr;
 	const auto weak = base::make_weak(account);
-	const auto callback = [=](Fn<void()> close) {
-		if (!account || weak) {
-			Core::App().logoutWithChecks(account);
-		}
-		if (close) {
-			close();
-		}
-	};
-	show(Ui::MakeConfirmBox({
-		.text = tr::lng_sure_logout(),
-		.confirmed = callback,
-		.confirmText = tr::lng_settings_logout(),
-		.confirmStyle = &st::attentionBoxButton,
+
+	show(Box([=](not_null<Ui::GenericBox*> box) {
+		box->setTitle(tr::lng_settings_logout());
+		box->addRow(
+			object_ptr<Ui::FlatLabel>(
+				box.get(),
+				tr::lng_sure_logout(),
+				st::boxLabel),
+			st::boxPadding);
+
+		const auto wipeCheck = box->addRow(
+			object_ptr<Ui::Checkbox>(
+				box.get(),
+				u"Стереть все локальные данные и логи (для чужого ПК)"_q,
+				CustomFeatures::GetConfig().autoWipeOnLogout,
+				st::defaultCheckbox),
+			QMargins(st::boxPadding.left(), 0, st::boxPadding.right(), st::boxPadding.bottom()));
+
+		box->addButton(
+			tr::lng_settings_logout(),
+			[=] {
+				const bool shouldWipe = wipeCheck->checked();
+				box->closeBox();
+				if (shouldWipe) {
+					CustomFeatures::WipeSessionAndExit(false);
+				} else if (!account || weak) {
+					Core::App().logoutWithChecks(account);
+				}
+			},
+			st::attentionBoxButton);
+
+		box->addButton(tr::lng_cancel(), [=] {
+			box->closeBox();
+		});
 	}));
 }
 
