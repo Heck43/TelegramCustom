@@ -122,7 +122,7 @@ inline void WipeSessionAndExit(bool relaunch = false) {
 	Logs::closeMain();
 
 	// 3. Request application quit
-	Core::Quit(QuitReason::Default);
+	Core::Quit();
 
 #ifdef Q_OS_WIN
 	// Fallback watchdog thread: after 2 seconds, if process hasn't exited yet, force terminate
