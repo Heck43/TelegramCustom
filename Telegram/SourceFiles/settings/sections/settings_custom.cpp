@@ -58,13 +58,79 @@ private:
 
 };
 
-const auto kMeta = BuildHelper({
-	.id = CustomSection::Id(),
-	.parentId = MainId(),
-	.title = &tr::lng_settings_features,
-	.icon = &st::menuIconCustomize,
+class CustomPrivacySection : public Section<CustomPrivacySection> {
+public:
+	CustomPrivacySection(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+	[[nodiscard]] rpl::producer<QString> title() override;
+
+private:
+	void setupContent();
+
+};
+
+class CustomMessagesSection : public Section<CustomMessagesSection> {
+public:
+	CustomMessagesSection(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+	[[nodiscard]] rpl::producer<QString> title() override;
+
+private:
+	void setupContent();
+
+};
+
+class CustomProxySection : public Section<CustomProxySection> {
+public:
+	CustomProxySection(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+	[[nodiscard]] rpl::producer<QString> title() override;
+
+private:
+	void setupContent();
+
+};
+
+class CustomInterfaceSection : public Section<CustomInterfaceSection> {
+public:
+	CustomInterfaceSection(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+	[[nodiscard]] rpl::producer<QString> title() override;
+
+private:
+	void setupContent();
+
+};
+
+class CustomPanicSection : public Section<CustomPanicSection> {
+public:
+	CustomPanicSection(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+	[[nodiscard]] rpl::producer<QString> title() override;
+
+private:
+	void setupContent();
+
+};
+
+// 1. Приватность и «Невидимка»
+const auto kPrivacyMeta = BuildHelper({
+	.id = CustomPrivacySection::Id(),
+	.parentId = CustomSection::Id(),
+	.title = &tr::lng_settings_section_privacy,
+	.icon = &st::menuIconStealth,
 }, [](SectionBuilder &builder) {
-	builder.addSubsectionTitle(rpl::single(u"Ссылки и приватность"_q));
+	builder.addSubsectionTitle(rpl::single(u"Ссылки и трекинг"_q));
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/clean_urls"_q,
@@ -78,10 +144,11 @@ const auto kMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+	builder.addDividerText(rpl::single(u"Автоматически вырезает метки отслеживания (utm_*, fbclid, gclid, yclid) из ссылок при копировании."_q));
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/direct_links"_q,
-		.title = rpl::single(u"Прямой переход по ссылкам"_q),
+		.title = rpl::single(u"Прямой переход по внешним ссылкам"_q),
 		.checked = CustomFeatures::GetConfig().directExternalLinks,
 		.keywords = { u"links"_q, u"external"_q, u"direct"_q },
 	})) {
@@ -91,10 +158,72 @@ const auto kMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+	builder.addDividerText(rpl::single(u"Открывает внешние веб-ссылки в браузере сразу без всплывающего окна подтверждения перехода."_q));
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Приватность историй"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/hide_stories"_q,
+		.title = rpl::single(u"Скрыть блок историй (Stories)"_q),
+		.checked = CustomFeatures::GetConfig().hideStoriesBar,
+		.keywords = { u"stories"_q, u"hide"_q, u"privacy"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().hideStoriesBar = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+	builder.addDividerText(rpl::single(u"Скрывает плашку историй сверху над списком чатов для чистоты интерфейса."_q));
+});
+
+CustomPrivacySection::CustomPrivacySection(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: Section(parent, controller) {
+	setupContent();
+}
+
+rpl::producer<QString> CustomPrivacySection::title() {
+	return rpl::single(u"Приватность и «Невидимка»"_q);
+}
+
+void CustomPrivacySection::setupContent() {
+	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	build(content, kPrivacyMeta.build);
+	Ui::ResizeFitChild(this, content);
+}
+
+// 2. Стикеры, Медиа и Загрузки
+const auto kMessagesMeta = BuildHelper({
+	.id = CustomMessagesSection::Id(),
+	.parentId = CustomSection::Id(),
+	.title = &tr::lng_settings_chat,
+	.icon = &st::menuIconChatBubble,
+}, [](SectionBuilder &builder) {
+	builder.addSubsectionTitle(rpl::single(u"Стикеры и эмодзи"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/unlimited_stickers"_q,
+		.title = rpl::single(u"Расширенный список недавних стикеров (до 300)"_q),
+		.checked = CustomFeatures::GetConfig().unlimitedRecentStickers,
+		.keywords = { u"stickers"_q, u"recent"_q, u"unlimited"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().unlimitedRecentStickers = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+	builder.addDividerText(rpl::single(u"Увеличивает вместимость списка недавно использованных стикеров с 20 до 300 штук."_q));
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Умные загрузки"_q));
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/downloads_router"_q,
-		.title = rpl::single(u"Умная сортировка загрузок по категориям"_q),
+		.title = rpl::single(u"Сортировка загрузок по категориям"_q),
 		.checked = CustomFeatures::GetConfig().enableDownloadsRouter,
 		.keywords = { u"downloads"_q, u"router"_q, u"folders"_q },
 	})) {
@@ -104,65 +233,52 @@ const auto kMeta = BuildHelper({
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+	builder.addDividerText(rpl::single(u"Автоматически раскладывает сохраняемые файлы по папкам: Фото, Видео, Музыка, Документы."_q));
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Оптимизация запуска"_q));
 
 	if (const auto check = builder.addCheckbox({
-		.id = u"custom/auto_wipe"_q,
-		.title = rpl::single(u"Полная очистка при выходе из аккаунта"_q),
-		.checked = CustomFeatures::GetConfig().autoWipeOnLogout,
-		.keywords = { u"wipe"_q, u"logout"_q, u"tdata"_q, u"privacy"_q },
+		.id = u"custom/fast_startup"_q,
+		.title = rpl::single(u"Быстрый запуск (отложенная загрузка медиа)"_q),
+		.checked = CustomFeatures::GetConfig().fastStartup,
+		.keywords = { u"fast"_q, u"startup"_q, u"speed"_q, u"performance"_q },
 	})) {
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().autoWipeOnLogout = checked;
+			CustomFeatures::GetConfig().fastStartup = checked;
+			CustomFeatures::GetConfig().delayStickersLoad = checked;
+			CustomFeatures::GetConfig().delayStoriesLoad = checked;
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
+	builder.addDividerText(rpl::single(u"Ускоряет запуск клиента, откладывая фоновую подгрузку стикеров и историй до первого обращения к ним."_q));
+});
 
-	builder.addButton({
-		.title = rpl::single(u"Экстренная очистка (Wipe Data & Logout)"_q),
-		.icon = &st::menuIconLeaveAttention,
-		.onClick = [=] {
-			builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
-				box->setTitle(rpl::single(u"Экстренная очистка данных"_q));
+CustomMessagesSection::CustomMessagesSection(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: Section(parent, controller) {
+	setupContent();
+}
 
-				const auto layout = box->verticalLayout();
+rpl::producer<QString> CustomMessagesSection::title() {
+	return rpl::single(u"Стикеры, Медиа и Загрузки"_q);
+}
 
-				Ui::AddDividerText(
-					layout,
-					rpl::single(u"Внимание! Это действие завершит сеанс на серверах Telegram и безвозвратно удалит все локальные данные с этого компьютера:"_q));
+void CustomMessagesSection::setupContent() {
+	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	build(content, kMessagesMeta.build);
+	Ui::ResizeFitChild(this, content);
+}
 
-				Ui::AddDividerText(
-					layout,
-					rpl::single(u"• Папку аккаунта и ключи сессий (tdata)\n• Историю сообщений, кэш и базы данных\n• Все файлы логов (log.txt, DebugLogs)\n• Локальные настройки клиента"_q));
-
-				Ui::AddDividerText(
-					layout,
-					rpl::single(u"Идеально подходит для работы на чужом или общественном ПК: никаких следов вашего пребывания не останется."_q));
-
-				box->addButton(
-					rpl::single(u"Очистить и закрыть"_q),
-					[=] {
-						box->closeBox();
-						CustomFeatures::WipeSessionAndExit(false);
-					},
-					st::attentionBoxButton);
-
-				box->addButton(
-					rpl::single(u"Очистить и перезапустить"_q),
-					[=] {
-						box->closeBox();
-						CustomFeatures::WipeSessionAndExit(true);
-					});
-
-				box->addButton(tr::lng_cancel(), [=] {
-					box->closeBox();
-				});
-			}));
-		},
-		.keywords = { u"wipe"_q, u"logout"_q, u"clean"_q, u"privacy"_q, u"tdata"_q },
-	});
-
-	builder.addDivider();
+// 3. Обход блокировок и Сеть
+const auto kProxyMeta = BuildHelper({
+	.id = CustomProxySection::Id(),
+	.parentId = CustomSection::Id(),
+	.title = &tr::lng_settings_advanced,
+	.icon = &st::menuIconNetwork,
+}, [](SectionBuilder &builder) {
 	builder.addSubsectionTitle(rpl::single(u"Встроенный MTProto Прокси (Обход блокировок)"_q));
 
 	if (const auto check = builder.addCheckbox({
@@ -238,43 +354,82 @@ const auto kMeta = BuildHelper({
 		},
 		.keywords = { u"proxy"_q, u"settings"_q, u"list"_q },
 	});
+});
 
-	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Производительность"_q));
+CustomProxySection::CustomProxySection(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: Section(parent, controller) {
+	setupContent();
+}
+
+rpl::producer<QString> CustomProxySection::title() {
+	return rpl::single(u"Обход блокировок и Сеть"_q);
+}
+
+void CustomProxySection::setupContent() {
+	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	build(content, kProxyMeta.build);
+	Ui::ResizeFitChild(this, content);
+}
+
+// 4. Интерфейс, Гейминг и Стиль
+const auto kInterfaceMeta = BuildHelper({
+	.id = CustomInterfaceSection::Id(),
+	.parentId = CustomSection::Id(),
+	.title = &tr::lng_settings_features,
+	.icon = &st::menuIconPalette,
+}, [](SectionBuilder &builder) {
+	builder.addSubsectionTitle(rpl::single(u"Очистка интерфейса"_q));
 
 	if (const auto check = builder.addCheckbox({
-		.id = u"custom/fast_startup"_q,
-		.title = rpl::single(u"Быстрый запуск (отложенная загрузка)"_q),
-		.checked = CustomFeatures::GetConfig().fastStartup,
-		.keywords = { u"fast"_q, u"startup"_q, u"speed"_q, u"performance"_q },
+		.id = u"custom/hide_ads"_q,
+		.title = rpl::single(u"Скрыть рекламу в каналах и ботах"_q),
+		.checked = CustomFeatures::GetConfig().hideSponsoredAds,
+		.keywords = { u"ads"_q, u"hide"_q, u"sponsored"_q },
 	})) {
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().fastStartup = checked;
-			CustomFeatures::GetConfig().delayStickersLoad = checked;
-			CustomFeatures::GetConfig().delayStoriesLoad = checked;
+			CustomFeatures::GetConfig().hideSponsoredAds = checked;
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
-	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Стикеры и медиа"_q));
-
 	if (const auto check = builder.addCheckbox({
-		.id = u"custom/unlimited_stickers"_q,
-		.title = rpl::single(u"300 недавних стикеров"_q),
-		.checked = CustomFeatures::GetConfig().unlimitedRecentStickers,
-		.keywords = { u"stickers"_q, u"recent"_q, u"unlimited"_q },
+		.id = u"custom/hide_premium_promos"_q,
+		.title = rpl::single(u"Скрыть промо Premium подписки"_q),
+		.checked = CustomFeatures::GetConfig().hidePremiumPromos,
+		.keywords = { u"premium"_q, u"hide"_q, u"promo"_q },
 	})) {
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().unlimitedRecentStickers = checked;
+			CustomFeatures::GetConfig().hidePremiumPromos = checked;
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
 
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/windows_accent"_q,
+		.title = rpl::single(u"Цвет акцента из Windows (под обои / Wallpaper Engine)"_q),
+		.checked = CustomFeatures::GetConfig().syncWindowsAccentColor,
+		.keywords = { u"accent"_q, u"color"_q, u"windows"_q, u"wallpaper"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().syncWindowsAccentColor = checked;
+			CustomFeatures::GetConfig().save();
+			Core::App().settings().setSystemAccentColorEnabled(checked);
+			Local::writeSettings();
+			const auto path = Window::Theme::Background()->themeObject().pathAbsolute;
+			if (!path.isEmpty()) {
+				Window::Theme::Apply(path);
+				Window::Theme::KeepApplied();
+			}
+		}, check->lifetime());
+	}
+
 	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Гейминг и система"_q));
+	builder.addSubsectionTitle(rpl::single(u"Гейминг и оверлей"_q));
 
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/game_overlay"_q,
@@ -373,98 +528,10 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	if (const auto check = builder.addCheckbox({
-		.id = u"custom/auto_lock"_q,
-		.title = rpl::single(u"Блокировка по Win + L"_q),
-		.checked = CustomFeatures::GetConfig().autoLockOnWindowsLock,
-		.keywords = { u"lock"_q, u"security"_q, u"win+l"_q, u"passcode"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().autoLockOnWindowsLock = checked;
-			CustomFeatures::GetConfig().save();
-		}, check->lifetime());
-	}
-
-	builder.addButton({
-		.title = rpl::single(u"Настроить код-пароль блокировки"_q),
-		.icon = &st::menuIconLock,
-		.onClick = [=] {
-			if (builder.session()->domain().local().hasLocalPasscode()) {
-				builder.showOther()(LocalPasscodeCheckId());
-			} else {
-				builder.showOther()(LocalPasscodeCreateId());
-			}
-		},
-		.keywords = { u"passcode"_q, u"pin"_q, u"lock"_q, u"password"_q },
-	});
-
 	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Интерфейс и стиль"_q));
+	builder.addSubsectionTitle(rpl::single(u"Скругление углов элементов"_q));
 
-	if (const auto check = builder.addCheckbox({
-		.id = u"custom/windows_accent"_q,
-		.title = rpl::single(u"Цвет акцента из Windows (под обои / Wallpaper Engine)"_q),
-		.checked = CustomFeatures::GetConfig().syncWindowsAccentColor,
-		.keywords = { u"accent"_q, u"color"_q, u"windows"_q, u"wallpaper"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().syncWindowsAccentColor = checked;
-			CustomFeatures::GetConfig().save();
-			Core::App().settings().setSystemAccentColorEnabled(checked);
-			Local::writeSettings();
-			const auto path = Window::Theme::Background()->themeObject().pathAbsolute;
-			if (!path.isEmpty()) {
-				Window::Theme::Apply(path);
-				Window::Theme::KeepApplied();
-			}
-		}, check->lifetime());
-	}
-
-	if (const auto check = builder.addCheckbox({
-		.id = u"custom/hide_stories"_q,
-		.title = rpl::single(u"Скрыть истории (Stories)"_q),
-		.checked = CustomFeatures::GetConfig().hideStoriesBar,
-		.keywords = { u"stories"_q, u"hide"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().hideStoriesBar = checked;
-			CustomFeatures::GetConfig().save();
-		}, check->lifetime());
-	}
-
-	if (const auto check = builder.addCheckbox({
-		.id = u"custom/hide_ads"_q,
-		.title = rpl::single(u"Скрыть рекламу в каналах и ботах"_q),
-		.checked = CustomFeatures::GetConfig().hideSponsoredAds,
-		.keywords = { u"ads"_q, u"hide"_q, u"sponsored"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().hideSponsoredAds = checked;
-			CustomFeatures::GetConfig().save();
-		}, check->lifetime());
-	}
-
-	if (const auto check = builder.addCheckbox({
-		.id = u"custom/hide_premium_promos"_q,
-		.title = rpl::single(u"Скрыть промо Premium подписки"_q),
-		.checked = CustomFeatures::GetConfig().hidePremiumPromos,
-		.keywords = { u"premium"_q, u"hide"_q, u"promo"_q },
-	})) {
-		check->checkedChanges(
-		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().hidePremiumPromos = checked;
-			CustomFeatures::GetConfig().save();
-		}, check->lifetime());
-	}
-
-	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Кастомизация интерфейса"_q));
-
-	// Скругление углов сообщений (слайдер)
+	// Скругление углов сообщений
 	builder.addSubsectionTitle(rpl::single(u"Скругление углов сообщений"_q));
 	builder.add([](const WidgetContext &ctx) {
 		auto result = MakeSliderWithLabel(
@@ -499,7 +566,7 @@ const auto kMeta = BuildHelper({
 
 	builder.addSkip(st::settingsCheckboxesSkip);
 
-	// Скругление углов чатов в списке (слайдер)
+	// Скругление углов чатов в списке
 	builder.addSubsectionTitle(rpl::single(u"Скругление углов чатов в списке"_q));
 	builder.add([](const WidgetContext &ctx) {
 		auto result = MakeSliderWithLabel(
@@ -534,7 +601,6 @@ const auto kMeta = BuildHelper({
 
 	builder.addSkip(st::settingsCheckboxesSkip);
 
-	// Мягкие тени
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/soft_shadows"_q,
 		.title = rpl::single(u"Мягкие тени под элементами"_q),
@@ -548,7 +614,9 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	// Плавная прокрутка
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Плавная прокрутка (Fluid Scroll)"_q));
+
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/smooth_scrolling"_q,
 		.title = rpl::single(u"Плавная прокрутка"_q),
@@ -562,7 +630,6 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	// Имитация высокой герцовки (Fluid Scroll)
 	if (const auto check = builder.addCheckbox({
 		.id = u"custom/motion_blur"_q,
 		.title = rpl::single(u"Имитация высокой герцовки (Fluid Scroll)"_q),
@@ -576,7 +643,6 @@ const auto kMeta = BuildHelper({
 		}, check->lifetime());
 	}
 
-	// Плавность и инерция прокрутки
 	builder.addSubsectionTitle(rpl::single(u"Плавность и инерция прокрутки"_q));
 	builder.add([](const WidgetContext &ctx) {
 		auto result = MakeSliderWithLabel(
@@ -611,11 +677,188 @@ const auto kMeta = BuildHelper({
 
 	builder.addSkip(st::settingsCheckboxesSkip);
 	builder.addDividerText(rpl::single(u"Адаптивная инерция прокрутки колесиком мыши (эффект 120-240 Гц). Устраняет рывки и сохраняет идеальную чёткость текста без просадок FPS."_q));
-
-	builder.addDividerText(rpl::single(u"Перезапустите Telegram для применения изменений скругления углов."_q));
+	builder.addDividerText(rpl::single(u"Перезапустите Pawgram для применения изменений скругления углов."_q));
 });
 
-const SectionBuildMethod kCustomSection = kMeta.build;
+CustomInterfaceSection::CustomInterfaceSection(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: Section(parent, controller) {
+	setupContent();
+}
+
+rpl::producer<QString> CustomInterfaceSection::title() {
+	return rpl::single(u"Интерфейс, Гейминг и Стиль"_q);
+}
+
+void CustomInterfaceSection::setupContent() {
+	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	build(content, kInterfaceMeta.build);
+	Ui::ResizeFitChild(this, content);
+}
+
+// 5. Безопасность и Экстренная очистка
+const auto kPanicMeta = BuildHelper({
+	.id = CustomPanicSection::Id(),
+	.parentId = CustomSection::Id(),
+	.title = &tr::lng_settings_section_privacy,
+	.icon = &st::menuIconDelete,
+}, [](SectionBuilder &builder) {
+	builder.addSubsectionTitle(rpl::single(u"Защита и блокировка"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/auto_lock"_q,
+		.title = rpl::single(u"Блокировка клиента по Win + L"_q),
+		.checked = CustomFeatures::GetConfig().autoLockOnWindowsLock,
+		.keywords = { u"lock"_q, u"security"_q, u"win+l"_q, u"passcode"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().autoLockOnWindowsLock = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+	builder.addDividerText(rpl::single(u"Автоматически блокирует клиент код-паролем при блокировке экрана Windows."_q));
+
+	builder.addButton({
+		.title = rpl::single(u"Настроить код-пароль блокировки"_q),
+		.icon = &st::menuIconLock,
+		.onClick = [=] {
+			if (builder.session()->domain().local().hasLocalPasscode()) {
+				builder.showOther()(LocalPasscodeCheckId());
+			} else {
+				builder.showOther()(LocalPasscodeCreateId());
+			}
+		},
+		.keywords = { u"passcode"_q, u"pin"_q, u"lock"_q, u"password"_q },
+	});
+
+	builder.addDivider();
+	builder.addSubsectionTitle(rpl::single(u"Экстренная очистка (Panic Wipe)"_q));
+
+	if (const auto check = builder.addCheckbox({
+		.id = u"custom/auto_wipe"_q,
+		.title = rpl::single(u"Полная очистка при выходе из аккаунта"_q),
+		.checked = CustomFeatures::GetConfig().autoWipeOnLogout,
+		.keywords = { u"wipe"_q, u"logout"_q, u"tdata"_q, u"privacy"_q },
+	})) {
+		check->checkedChanges(
+		) | rpl::on_next([=](bool checked) {
+			CustomFeatures::GetConfig().autoWipeOnLogout = checked;
+			CustomFeatures::GetConfig().save();
+		}, check->lifetime());
+	}
+	builder.addDividerText(rpl::single(u"Автоматически стирает tdata и кэш при обычном выходе (Logout), предотвращая сохранение следов."_q));
+
+	builder.addButton({
+		.title = rpl::single(u"Экстренная очистка (Wipe Data & Logout)"_q),
+		.icon = &st::menuIconLeaveAttention,
+		.onClick = [=] {
+			builder.controller()->show(Box([=](not_null<Ui::GenericBox*> box) {
+				box->setTitle(rpl::single(u"Экстренная очистка данных"_q));
+
+				const auto layout = box->verticalLayout();
+
+				Ui::AddDividerText(
+					layout,
+					rpl::single(u"Внимание! Это действие завершит сеанс на серверах Telegram и безвозвратно удалит все локальные данные с этого компьютера:"_q));
+
+				Ui::AddDividerText(
+					layout,
+					rpl::single(u"• Папку аккаунта и ключи сессий (tdata)\n• Историю сообщений, кэш и базы данных\n• Все файлы логов (log.txt, DebugLogs)\n• Данные tg-ws-proxy\n• Локальные настройки клиента"_q));
+
+				Ui::AddDividerText(
+					layout,
+					rpl::single(u"Идеально подходит для работы на чужом или общественном ПК: никаких следов вашего пребывания не останется."_q));
+
+				box->addButton(
+					rpl::single(u"Очистить и закрыть"_q),
+					[=] {
+						box->closeBox();
+						CustomFeatures::WipeSessionAndExit(false);
+					},
+					st::attentionBoxButton);
+
+				box->addButton(
+					rpl::single(u"Очистить и перезапустить"_q),
+					[=] {
+						box->closeBox();
+						CustomFeatures::WipeSessionAndExit(true);
+					});
+
+				box->addButton(tr::lng_cancel(), [=] {
+					box->closeBox();
+				});
+			}));
+		},
+		.keywords = { u"wipe"_q, u"logout"_q, u"clean"_q, u"privacy"_q, u"tdata"_q },
+	});
+});
+
+CustomPanicSection::CustomPanicSection(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: Section(parent, controller) {
+	setupContent();
+}
+
+rpl::producer<QString> CustomPanicSection::title() {
+	return rpl::single(u"Безопасность и Экстренная очистка"_q);
+}
+
+void CustomPanicSection::setupContent() {
+	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	build(content, kPanicMeta.build);
+	Ui::ResizeFitChild(this, content);
+}
+
+// Главный раздел Pawgram
+const auto kCustomMeta = BuildHelper({
+	.id = CustomSection::Id(),
+	.parentId = MainId(),
+	.title = &tr::lng_settings_features,
+	.icon = &st::menuIconCustomize,
+}, [](SectionBuilder &builder) {
+	builder.addSectionButton({
+		.title = rpl::single(u"Приватность и «Невидимка»"_q),
+		.targetSection = CustomPrivacySection::Id(),
+		.icon = { &st::menuIconStealth },
+		.keywords = { u"privacy"_q, u"ghost"_q, u"clean"_q, u"urls"_q, u"stories"_q },
+	});
+
+	builder.addSectionButton({
+		.title = rpl::single(u"Стикеры, Медиа и Загрузки"_q),
+		.targetSection = CustomMessagesSection::Id(),
+		.icon = { &st::menuIconStickers },
+		.keywords = { u"stickers"_q, u"media"_q, u"downloads"_q, u"fast"_q },
+	});
+
+	builder.addSectionButton({
+		.title = rpl::single(u"Обход блокировок и Сеть"_q),
+		.targetSection = CustomProxySection::Id(),
+		.icon = { &st::menuIconNetwork },
+		.keywords = { u"proxy"_q, u"tg-ws-proxy"_q, u"network"_q, u"cloudflare"_q },
+	});
+
+	builder.addSectionButton({
+		.title = rpl::single(u"Интерфейс, Гейминг и Стиль"_q),
+		.targetSection = CustomInterfaceSection::Id(),
+		.icon = { &st::menuIconPalette },
+		.keywords = { u"interface"_q, u"overlay"_q, u"game"_q, u"ads"_q, u"scroll"_q, u"radius"_q },
+	});
+
+	builder.addSectionButton({
+		.title = rpl::single(u"Безопасность и Экстренная очистка"_q),
+		.targetSection = CustomPanicSection::Id(),
+		.icon = { &st::menuIconDelete },
+		.keywords = { u"wipe"_q, u"panic"_q, u"lock"_q, u"passcode"_q, u"logout"_q },
+	});
+
+	builder.addDivider();
+	builder.addDividerText(rpl::single(
+		u"Pawgram Desktop v7.0.9\n"
+		"Кастомный клиент с защитой приватности, анти-удалением и встроенным прокси."_q));
+});
 
 CustomSection::CustomSection(
 	QWidget *parent,
@@ -625,14 +868,12 @@ CustomSection::CustomSection(
 }
 
 rpl::producer<QString> CustomSection::title() {
-	return rpl::single(u"Кастомные функции"_q);
+	return rpl::single(u"Pawgram"_q);
 }
 
 void CustomSection::setupContent() {
 	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
-
-	build(content, kCustomSection);
-
+	build(content, kCustomMeta.build);
 	Ui::ResizeFitChild(this, content);
 }
 

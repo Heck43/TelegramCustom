@@ -436,10 +436,10 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	});
 
 	builder.addSectionButton({
-		.title = rpl::single(u"Кастомные функции"_q),
+		.title = rpl::single(u"🐾 Настройки Pawgram"_q),
 		.targetSection = CustomSettingsId(),
 		.icon = { &st::menuIconCustomize },
-		.keywords = { u"custom"_q, u"mods"_q, u"speed"_q, u"stickers"_q, u"urls"_q },
+		.keywords = { u"pawgram"_q, u"custom"_q, u"mods"_q, u"speed"_q, u"privacy"_q, u"proxy"_q },
 	});
 
 	builder.addSectionButton({

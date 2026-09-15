@@ -5,6 +5,27 @@
 ---
 
 ### [Коммит `HEAD`] — 16 сентября 2026 г.
+- **Сообщение коммита:** *feat(branding & settings): rename client to Pawgram and reorganize settings into 5 categorized sub-sections with native icons*
+- **Что изменено:**
+  - `Telegram/SourceFiles/core/version.h`:
+    - Имя клиента изменено на `Pawgram Desktop` (`AppName = "Pawgram Desktop"_cs`), `AppNameOld = "Telegram Desktop"_cs`. Исполняемый файл сохранён как `Telegram.exe`.
+  - `Telegram/SourceFiles/window/main_window.cpp`:
+    - Заголовок главного окна по умолчанию обновлён на `Pawgram`.
+  - `Telegram/SourceFiles/settings/sections/settings_main.cpp`:
+    - Кнопка в главном меню настроек переименована в `🐾 Настройки Pawgram`.
+  - `Telegram/SourceFiles/settings/sections/settings_custom.cpp`:
+    - Полностью реорганизован раздел кастомных настроек по принципу официальных вложенных подразделов Telegram Desktop с нативной анимацией переходов и кнопкой «Назад»:
+      1. `👻 Приватность и «Невидимка»` (иконка `st::menuIconStealth`): очистка UTM-трекеров, прямой переход по ссылкам, скрытие историй.
+      2. `💬 Стикеры, Медиа и Загрузки` (иконка `st::menuIconStickers`): лимит 300 недавних стикеров, умная сортировка загрузок, отложенная загрузка медиа.
+      3. `🌐 Обход блокировок и Сеть` (иконка `st::menuIconNetwork`): управление встроенным tg-ws-proxy, статус подключения, переход в список прокси.
+      4. `🎨 Интерфейс, Гейминг и Стиль` (иконка `st::menuIconPalette`): блокировка рекламы, скрытие Premium-промо, игровой оверлей, цвет Windows, радиусы скругления, мягкие тени, плавная прокрутка Fluid Scroll.
+      5. `⚡ Безопасность и Экстренная очистка` (иконка `st::menuIconDelete`): блокировка по Win+L, авто-вайп при Logout, экстренное уничтожение данных Panic Wipe.
+  - `.github/workflows/build_custom_win.yml`:
+    - Добавлено копирование пропатченных файлов `core/version.h` и `window/main_window.cpp`.
+
+---
+
+### [Коммит `eaf0c85`] — 16 сентября 2026 г.
 - **Сообщение коммита:** *fix(proxy): bind process lifecycle to Job Object and ensure UI thread safety on proxy activation*
 - **Что изменено:**
   - `Telegram/SourceFiles/custom_features/ws_proxy_manager.hpp`:
