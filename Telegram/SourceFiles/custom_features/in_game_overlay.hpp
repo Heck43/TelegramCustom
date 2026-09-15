@@ -498,7 +498,6 @@ public:
         updateHeaderStatus();
 
         const bool isChannel = history->peer && history->peer->isChannel() && !history->peer->isMegagroup();
-        const bool isGroup = history->peer && (history->peer->isChat() || history->peer->isMegagroup());
 
         if (isChannel) {
             _inputContainer->hide();

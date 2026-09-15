@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/continuous_sliders.h"
 #include "ui/widgets/labels.h"
 #include "ui/layers/generic_box.h"
+#include "ui/boxes/confirm_box.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
 #include "styles/style_basic.h"
@@ -194,8 +195,7 @@ const auto kMeta = BuildHelper({
 			if (!CustomFeatures::WsProxyManager::Instance().hasExecutable()) {
 				builder.controller()->show(Ui::MakeConfirmBox({
 					.text = u"Исполняемый файл tg-ws-proxy.exe не найден рядом с клиентом.\n\nСкачать его автоматически из официального репозитория Flowseal/tg-ws-proxy?"_q,
-					.confirmed = [=](Fn<void()> &&close) {
-						close();
+					.confirmed = [=] {
 						CustomFeatures::WsProxyManager::Instance().downloadProxyAsync([=](bool ok, QString err) {
 							if (ok) {
 								if (CustomFeatures::GetConfig().enableWsProxy) {

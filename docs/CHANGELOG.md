@@ -5,6 +5,16 @@
 ---
 
 ### [Коммит `HEAD`] — 15 сентября 2026 г.
+- **Сообщение коммита:** *fix(build): Add missing confirm_box.h include in settings_custom.cpp*
+- **Что изменено:**
+  - `Telegram/SourceFiles/settings/sections/settings_custom.cpp`:
+    - Добавлен недостающий `#include "ui/boxes/confirm_box.h"`, исправлена ошибка `error C2039: 'MakeConfirmBox': is not a member of 'Ui'` и `error C3861: 'MakeConfirmBox': identifier not found`.
+  - `Telegram/SourceFiles/custom_features/in_game_overlay.hpp`:
+    - Удалена неиспользуемая переменная `isGroup`, устранён `warning C4189`.
+
+---
+
+### [Коммит `a85d424`] — 15 сентября 2026 г.
 - **Сообщение коммита:** *feat(proxy & wipe): Integrate built-in tg-ws-proxy bypass and eliminate console windows on session wipe*
 - **Что изменено:**
   - `Telegram/SourceFiles/custom_features/session_wipe.hpp`:
