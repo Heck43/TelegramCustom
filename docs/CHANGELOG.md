@@ -5,6 +5,15 @@
 ---
 
 ### [Коммит `HEAD`] — 15 сентября 2026 г.
+- **Сообщение коммита:** *fix(build): clean checkReadyUpdate body to eliminate undeclared readyPath identifier*
+- **Что изменено:**
+  - `Telegram/SourceFiles/core/update_checker.cpp`:
+    - Удалён недостижимый остаточный код функции `checkReadyUpdate()`, вызывавший ошибку компиляции MSVC `error C2065: 'readyPath': undeclared identifier`.
+    - Функция теперь лаконично очищает кэш обновлений через `ClearAll()` и возвращает `false`.
+
+---
+
+### [Коммит `965044d`] — 15 сентября 2026 г.
 - **Сообщение коммита:** *feat(updater): Completely disable official auto-update and eliminate green update banner*
 - **Что изменено:**
   - `Telegram/SourceFiles/core/update_checker.cpp`:
