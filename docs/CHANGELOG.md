@@ -5,6 +5,21 @@
 ---
 
 ### [Коммит `HEAD`] — 15 сентября 2026 г.
+- **Сообщение коммита:** *feat(updater): Completely disable official auto-update and eliminate green update banner*
+- **Что изменено:**
+  - `Telegram/SourceFiles/core/update_checker.cpp`:
+    - Принудительно отключён официальный механизм автообновления Telegram (`UpdaterDisabled() -> true`, `UpdaterIsDisabled = true`).
+    - Полностью заблокированы вызовы `UpdateChecker::start()`, `UpdateChecker::setMtproto()`, `checkReadyUpdate()`, а также создание и загрузка `tupdate`.
+    - Зелёная плашка «Обновить Telegram» в списке чатов больше никогда не появится.
+  - `Telegram/SourceFiles/core/application.cpp`:
+    - Добавлена очистка остаточных временных папок обновлений (`tupdates`) при старте клиента.
+  - `.github/workflows/build_custom_win.yml`:
+    - Переключен флаг сборки на `-D DESKTOP_APP_DISABLE_AUTOUPDATE=ON`, гарантируя компиляцию без сборки `Updater.exe` и вырезание всех механизмов перезаписи клиента.
+    - Добавлено копирование пропатченного `core/update_checker.cpp`.
+
+---
+
+### [Коммит `6b11c44`] — 15 сентября 2026 г.
 - **Сообщение коммита:** *fix(build): Add missing confirm_box.h include in settings_custom.cpp*
 - **Что изменено:**
   - `Telegram/SourceFiles/settings/sections/settings_custom.cpp`:

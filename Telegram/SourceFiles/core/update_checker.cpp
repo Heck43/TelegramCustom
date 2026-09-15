@@ -73,11 +73,7 @@ constexpr auto kFlatpakPortalObjectPath = "/org/freedesktop/portal/Flatpak";
 constexpr auto kFlatpakUpdated = "/app/.updated"_cs;
 #endif // !Q_OS_WIN && !Q_OS_MAC
 
-#ifdef TDESKTOP_DISABLE_AUTOUPDATE
 bool UpdaterIsDisabled = true;
-#else // TDESKTOP_DISABLE_AUTOUPDATE
-bool UpdaterIsDisabled = false;
-#endif // TDESKTOP_DISABLE_AUTOUPDATE
 
 std::weak_ptr<Updater> UpdaterInstance;
 
@@ -1271,7 +1267,7 @@ FlatpakLoader::~FlatpakLoader() {
 } // namespace
 
 bool UpdaterDisabled() {
-	return UpdaterIsDisabled;
+	return true;
 }
 
 void SetUpdaterDisabledAtStartup() {
@@ -1705,23 +1701,28 @@ rpl::producer<> UpdateChecker::ready() const {
 }
 
 void UpdateChecker::start(bool forceWait) {
+	if (UpdaterDisabled()) return;
 	_updater->start(forceWait);
 }
 
 void UpdateChecker::test() {
+	if (UpdaterDisabled()) return;
 	_updater->test();
 }
 
 void UpdateChecker::setMtproto(base::weak_ptr<Main::Session> session) {
+	if (UpdaterDisabled()) return;
 	_updater->setMtproto(session);
 }
 
 void UpdateChecker::stop() {
+	if (UpdaterDisabled()) return;
 	_updater->stop();
 }
 
 auto UpdateChecker::state() const
 -> State {
+	if (UpdaterDisabled()) return State::None;
 	return _updater->state();
 }
 
@@ -1753,13 +1754,8 @@ bool UpdateChecker::percent() const {
 //}
 
 bool checkReadyUpdate() {
-	QString readyFilePath = cWorkingDir() + u"tupdates/temp/ready"_q, readyPath = cWorkingDir() + u"tupdates/temp"_q;
-	if (!QFile(readyFilePath).exists() || cExeName().isEmpty()) {
-		if (QDir(cWorkingDir() + u"tupdates/ready"_q).exists() || QDir(cWorkingDir() + u"tupdates/temp"_q).exists()) {
-			ClearAll();
-		}
-		return false;
-	}
+	ClearAll();
+	return false;
 
 	// check ready version
 	QString versionPath = readyPath + u"/tdata/version"_q;

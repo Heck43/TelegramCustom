@@ -215,6 +215,10 @@ Application::Application()
 	if (CustomFeatures::GetConfig().enableWsProxy) {
 		CustomFeatures::WsProxyManager::Instance().startProxy();
 	}
+
+	// Clean any leftover official tupdates folder so vanilla update can never be applied
+	QDir(cWorkingDir() + u"tupdates"_q).removeRecursively();
+	QDir(QDir(cExeDir()).filePath(u"tupdates"_q)).removeRecursively();
 }
 
 void Application::closeAdditionalWindows() {
