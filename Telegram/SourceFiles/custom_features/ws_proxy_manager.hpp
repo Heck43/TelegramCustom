@@ -21,6 +21,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <tlhelp32.h>
 #endif
 
 namespace CustomFeatures {
@@ -89,6 +90,35 @@ public:
 		return u"Отключен"_q;
 	}
 
+	static void terminateAllProxyProcesses() {
+#ifdef Q_OS_WIN
+		HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		if (hSnapshot == INVALID_HANDLE_VALUE) {
+			return;
+		}
+
+		PROCESSENTRY32W pe;
+		ZeroMemory(&pe, sizeof(pe));
+		pe.dwSize = sizeof(pe);
+
+		if (Process32FirstW(hSnapshot, &pe)) {
+			do {
+				const std::wstring exeName = pe.szExeFile;
+				if (_wcsicmp(exeName.c_str(), L"tg-ws-proxy.exe") == 0
+					|| _wcsicmp(exeName.c_str(), L"TgWsProxy.exe") == 0
+					|| _wcsicmp(exeName.c_str(), L"TgWsProxy_windows.exe") == 0) {
+					HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, pe.th32ProcessID);
+					if (hProc) {
+						TerminateProcess(hProc, 0);
+						CloseHandle(hProc);
+					}
+				}
+			} while (Process32NextW(hSnapshot, &pe));
+		}
+		CloseHandle(hSnapshot);
+#endif
+	}
+
 	bool startProxy() {
 		if (isProxyRunning()) {
 			applyTelegramProxy();
@@ -104,6 +134,22 @@ public:
 		prepareProxyDataDir(proxyExe);
 
 #ifdef Q_OS_WIN
+		// Terminate any stale proxy instances before launching
+		terminateAllProxyProcesses();
+
+		if (!_jobHandle) {
+			_jobHandle = CreateJobObjectW(nullptr, nullptr);
+			if (_jobHandle) {
+				JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+				jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+				SetInformationJobObject(
+					_jobHandle,
+					JobObjectExtendedLimitInformation,
+					&jeli,
+					sizeof(jeli));
+			}
+		}
+
 		const auto exeDir = QFileInfo(proxyExe).dir().absolutePath();
 		const std::wstring cmdLine = L"\"" + proxyExe.toStdWString() + L"\" --portable";
 		std::vector<wchar_t> cmdLineBuf(cmdLine.begin(), cmdLine.end());
@@ -126,19 +172,25 @@ public:
 				nullptr,
 				nullptr,
 				FALSE,
-				CREATE_NO_WINDOW | DETACHED_PROCESS,
+				CREATE_NO_WINDOW,
 				nullptr,
 				workDirW.c_str(),
 				&si,
 				&pi)) {
 			_processHandle = pi.hProcess;
 			_processPid = pi.dwProcessId;
+
+			if (_jobHandle) {
+				AssignProcessToJobObject(_jobHandle, pi.hProcess);
+			}
+
 			CloseHandle(pi.hThread);
 			_isRunning.store(true);
 
-			// Small grace sleep for the proxy to bind its listening port
+			// Small grace sleep for the proxy to bind its listening port,
+			// then configure Telegram proxy on the main thread safely
 			std::thread([this]() {
-				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				std::this_thread::sleep_for(std::chrono::milliseconds(600));
 				applyTelegramProxy();
 			}).detach();
 
@@ -156,61 +208,75 @@ public:
 			_processHandle = nullptr;
 			_processPid = 0;
 		}
+		if (_jobHandle != nullptr) {
+			TerminateJobObject(_jobHandle, 0);
+			CloseHandle(_jobHandle);
+			_jobHandle = nullptr;
+		}
 
-		// Silently kill any remaining tg-ws-proxy instances without console windows
-		runHiddenCommand(L"taskkill /F /IM tg-ws-proxy.exe");
-		runHiddenCommand(L"taskkill /F /IM TgWsProxy.exe");
-		runHiddenCommand(L"taskkill /F /IM TgWsProxy_windows.exe");
+		// Ensure all proxy instances are terminated cleanly via native Win32 API
+		terminateAllProxyProcesses();
 #endif
 		_isRunning.store(false);
 
 		// Revert Telegram proxy to System/Disabled if current was our local proxy
-		if (Core::IsAppLaunched()) {
-			auto &settings = Core::App().settings().proxy();
-			if (settings.isEnabled() && settings.selected().host == u"127.0.0.1"_q) {
-				Core::App().setCurrentProxy(MTP::ProxyData(), MTP::ProxyData::Settings::System);
-			}
+		// ONLY if the app is still active and not quitting
+		if (Core::IsAppLaunched() && !Core::Quitting()) {
+			crl::on_main([] {
+				if (Core::IsAppLaunched() && !Core::Quitting()) {
+					auto &settings = Core::App().settings().proxy();
+					if (settings.isEnabled() && settings.selected().host == u"127.0.0.1"_q) {
+						Core::App().setCurrentProxy(MTP::ProxyData(), MTP::ProxyData::Settings::System);
+					}
+				}
+			});
 		}
 	}
 
 	void restartProxy() {
 		stopProxy();
-		std::this_thread::sleep_for(std::chrono::milliseconds(300));
-		startProxy();
+		std::thread([this]() {
+			std::this_thread::sleep_for(std::chrono::milliseconds(300));
+			crl::on_main([this] {
+				startProxy();
+			});
+		}).detach();
 	}
 
 	void applyTelegramProxy() {
-		if (!Core::IsAppLaunched()) {
-			return;
-		}
-
-		auto &cfg = GetConfig();
-		if (!cfg.wsProxyAutoConfigTg) {
-			return;
-		}
-
-		MTP::ProxyData proxy;
-		proxy.type = MTP::ProxyData::Type::Mtproto;
-		proxy.host = u"127.0.0.1"_q;
-		proxy.port = cfg.wsProxyPort;
-		proxy.password = cfg.wsProxySecret;
-
-		auto &settings = Core::App().settings().proxy();
-
-		bool inList = false;
-		for (const auto &item : settings.list()) {
-			if (item.type == MTP::ProxyData::Type::Mtproto
-				&& item.host == proxy.host
-				&& item.port == proxy.port) {
-				inList = true;
-				break;
+		crl::on_main([this] {
+			if (!Core::IsAppLaunched() || Core::Quitting()) {
+				return;
 			}
-		}
-		if (!inList) {
-			settings.addToList(proxy);
-		}
 
-		Core::App().setCurrentProxy(proxy, MTP::ProxyData::Settings::Enabled);
+			auto &cfg = GetConfig();
+			if (!cfg.wsProxyAutoConfigTg) {
+				return;
+			}
+
+			MTP::ProxyData proxy;
+			proxy.type = MTP::ProxyData::Type::Mtproto;
+			proxy.host = u"127.0.0.1"_q;
+			proxy.port = cfg.wsProxyPort;
+			proxy.password = cfg.wsProxySecret;
+
+			auto &settings = Core::App().settings().proxy();
+
+			bool inList = false;
+			for (const auto &item : settings.list()) {
+				if (item.type == MTP::ProxyData::Type::Mtproto
+					&& item.host == proxy.host
+					&& item.port == proxy.port) {
+					inList = true;
+					break;
+				}
+			}
+			if (!inList) {
+				settings.addToList(proxy);
+			}
+
+			Core::App().setCurrentProxy(proxy, MTP::ProxyData::Settings::Enabled);
+		});
 	}
 
 	void downloadProxyAsync(Fn<void(bool success, QString error)> callback) {
@@ -299,7 +365,14 @@ private:
 				marker.close();
 			}
 
-			// 2. config.json matching current port & secret
+			// 2. IPv6 warning marker to prevent TgWsProxy from popping up IPv6 dialog
+			QFile ipv6Marker(dirPath + u"/.ipv6_warned"_q);
+			if (ipv6Marker.open(QIODevice::WriteOnly)) {
+				ipv6Marker.write("done\n");
+				ipv6Marker.close();
+			}
+
+			// 3. config.json matching current port & secret
 			QFile configFile(dirPath + u"/config.json"_q);
 			if (configFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
 				const QString json =
@@ -318,37 +391,8 @@ private:
 	}
 
 #ifdef Q_OS_WIN
-	static void runHiddenCommand(const std::wstring &cmdLine) {
-		STARTUPINFOW si;
-		ZeroMemory(&si, sizeof(si));
-		si.cb = sizeof(si);
-		si.dwFlags = STARTF_USESHOWWINDOW;
-		si.wShowWindow = SW_HIDE;
-
-		PROCESS_INFORMATION pi;
-		ZeroMemory(&pi, sizeof(pi));
-
-		std::vector<wchar_t> buf(cmdLine.begin(), cmdLine.end());
-		buf.push_back(0);
-
-		if (CreateProcessW(
-				nullptr,
-				buf.data(),
-				nullptr,
-				nullptr,
-				FALSE,
-				CREATE_NO_WINDOW,
-				nullptr,
-				nullptr,
-				&si,
-				&pi)) {
-			WaitForSingleObject(pi.hProcess, 2000);
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);
-		}
-	}
-
 	HANDLE _processHandle = nullptr;
+	HANDLE _jobHandle = nullptr;
 	DWORD _processPid = 0;
 #endif
 

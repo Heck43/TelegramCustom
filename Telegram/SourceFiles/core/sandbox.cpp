@@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/qthelp_regex.h"
 #include "ui/ui_utility.h"
 #include "ui/effects/animations.h"
+#include "custom_features/ws_proxy_manager.hpp"
 
 #ifdef Q_OS_MAC
 #include "platform/mac/global_menu_mac.h"
@@ -723,6 +724,8 @@ void Sandbox::closeApplication() {
 		return;
 	}
 	SetLaunchState(LaunchState::QuitProcessed);
+
+	CustomFeatures::WsProxyManager::Instance().stopProxy();
 
 	_application = nullptr;
 

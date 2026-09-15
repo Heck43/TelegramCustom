@@ -4,7 +4,22 @@
 
 ---
 
-### [Коммит `HEAD`] — 15 сентября 2026 г.
+### [Коммит `HEAD`] — 16 сентября 2026 г.
+- **Сообщение коммита:** *fix(proxy): bind process lifecycle to Job Object and ensure UI thread safety on proxy activation*
+- **Что изменено:**
+  - `Telegram/SourceFiles/custom_features/ws_proxy_manager.hpp`:
+    - Процесс `tg-ws-proxy.exe` привязан к Windows Job Object с флагом `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, что гарантирует его автоматическое завершение на уровне ядра ОС при любом выходе, закрытии или сбое Telegram.
+    - Добавлена функция `terminateAllProxyProcesses()` на базе Win32 Toolhelp32 API (`tlhelp32.h`), мгновенно и без вызова сторонних утилит завершающая все экземпляры прокси.
+    - Конфигурация прокси Telegram (`setCurrentProxy`, `addToList`) изолирована на главном потоке интерфейса через `crl::on_main`, устраняя конфликт таймеров Qt и падение анимаций (`Assertion Failed! "_started < 0" animations.cpp:61`).
+    - В директории данных прокси создаётся маркер `.ipv6_warned` для полного подавления всплывающих диалоговых окон IPv6.
+  - `Telegram/SourceFiles/core/sandbox.cpp`:
+    - Добавлен вызов `stopProxy()` в `Sandbox::closeApplication()` для гарантированной остановки прокси перед завершением приложения.
+  - `.github/workflows/build_custom_win.yml`:
+    - Добавлено копирование пропатченного `core/sandbox.cpp` на шаге сборки.
+
+---
+
+### [Коммит `39be6e8`] — 15 сентября 2026 г.
 - **Сообщение коммита:** *fix(build): clean checkReadyUpdate body to eliminate undeclared readyPath identifier*
 - **Что изменено:**
   - `Telegram/SourceFiles/core/update_checker.cpp`:
