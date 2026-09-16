@@ -199,7 +199,7 @@ void CustomPrivacySection::setupContent() {
 const auto kMessagesMeta = BuildHelper({
 	.id = CustomMessagesSection::Id(),
 	.parentId = CustomSection::Id(),
-	.title = &tr::lng_settings_chat,
+	.title = &tr::lng_settings_section_chat_settings,
 	.icon = &st::menuIconChatBubble,
 }, [](SectionBuilder &builder) {
 	builder.addSubsectionTitle(rpl::single(u"Стикеры и эмодзи"_q));
