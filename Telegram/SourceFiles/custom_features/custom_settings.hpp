@@ -33,10 +33,12 @@ struct ClientConfig {
     bool hideSponsoredAds = true;          // Скрыть спонсорские посты и рекламные плашки вверху
     bool hidePremiumPromos = true;         // Скрыть промо Premium
 
-    // 5. Производительность
+    // 5. Производительность и Память
     bool fastStartup = true;               // Быстрый запуск (отложенная загрузка)
     bool delayStickersLoad = true;         // Отложить загрузку стикеров
     bool delayStoriesLoad = true;          // Отложить загрузку Stories
+    bool trimMemoryOnMinimize = true;      // Авто-сброс RAM при сворачивании в трей/минимизации
+    int pixmapCacheLimitMb = 32;           // Лимит кэша растровых изображений Qt в МБ (по умолч. 32)
 
     // 6. UI Customization
     int chatBorderRadius = 12;             // Скругление углов чатов (0-24px)
@@ -78,6 +80,10 @@ struct ClientConfig {
         fastStartup = s.value("fastStartup", fastStartup).toBool();
         delayStickersLoad = s.value("delayStickersLoad", delayStickersLoad).toBool();
         delayStoriesLoad = s.value("delayStoriesLoad", delayStoriesLoad).toBool();
+        trimMemoryOnMinimize = s.value("trimMemoryOnMinimize", trimMemoryOnMinimize).toBool();
+        pixmapCacheLimitMb = s.value("pixmapCacheLimitMb", pixmapCacheLimitMb).toInt();
+        if (pixmapCacheLimitMb < 8) pixmapCacheLimitMb = 8;
+        if (pixmapCacheLimitMb > 256) pixmapCacheLimitMb = 256;
         
         chatBorderRadius = s.value("chatBorderRadius", chatBorderRadius).toInt();
         messageBorderRadius = s.value("messageBorderRadius", messageBorderRadius).toInt();
@@ -121,6 +127,8 @@ struct ClientConfig {
         s.setValue("fastStartup", fastStartup);
         s.setValue("delayStickersLoad", delayStickersLoad);
         s.setValue("delayStoriesLoad", delayStoriesLoad);
+        s.setValue("trimMemoryOnMinimize", trimMemoryOnMinimize);
+        s.setValue("pixmapCacheLimitMb", pixmapCacheLimitMb);
         
         s.setValue("chatBorderRadius", chatBorderRadius);
         s.setValue("messageBorderRadius", messageBorderRadius);

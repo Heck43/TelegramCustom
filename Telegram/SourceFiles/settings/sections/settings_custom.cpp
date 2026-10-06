@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "custom_features/session_wipe.hpp"
 #include "custom_features/in_game_overlay.hpp"
 #include "custom_features/ws_proxy_manager.hpp"
+#include "custom_features/memory_optimizer.hpp"
 #include "boxes/connection_box.h"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
@@ -236,23 +237,32 @@ const auto kMessagesMeta = BuildHelper({
 	builder.addDividerText(rpl::single(u"Автоматически раскладывает сохраняемые файлы по папкам: Фото, Видео, Музыка, Документы."_q));
 
 	builder.addDivider();
-	builder.addSubsectionTitle(rpl::single(u"Оптимизация запуска"_q));
+	builder.addSubsectionTitle(rpl::single(u"Оптимизация памяти (RAM)"_q));
 
 	if (const auto check = builder.addCheckbox({
-		.id = u"custom/fast_startup"_q,
-		.title = rpl::single(u"Быстрый запуск (отложенная загрузка медиа)"_q),
-		.checked = CustomFeatures::GetConfig().fastStartup,
-		.keywords = { u"fast"_q, u"startup"_q, u"speed"_q, u"performance"_q },
+		.id = u"custom/trim_memory_on_minimize"_q,
+		.title = rpl::single(u"Сбрасывать память при сворачивании в трей"_q),
+		.checked = CustomFeatures::GetConfig().trimMemoryOnMinimize,
+		.keywords = { u"ram"_q, u"memory"_q, u"minimize"_q, u"optimize"_q, u"tray"_q },
 	})) {
 		check->checkedChanges(
 		) | rpl::on_next([=](bool checked) {
-			CustomFeatures::GetConfig().fastStartup = checked;
-			CustomFeatures::GetConfig().delayStickersLoad = checked;
-			CustomFeatures::GetConfig().delayStoriesLoad = checked;
+			CustomFeatures::GetConfig().trimMemoryOnMinimize = checked;
 			CustomFeatures::GetConfig().save();
 		}, check->lifetime());
 	}
-	builder.addDividerText(rpl::single(u"Ускоряет запуск клиента, откладывая фоновую подгрузку стикеров и историй до первого обращения к ним."_q));
+	builder.addDividerText(rpl::single(u"Автоматически выгружает неактивные графические кэши и сбрасывает рабочий набор памяти Windows при сворачивании окна или уходе в трей."_q));
+
+	builder.addButton({
+		.title = rpl::single(u"Очистить память RAM сейчас"_q),
+		.icon = &st::menuIconDelete,
+		.onClick = [=] {
+			CustomFeatures::MemoryOptimizer::TrimWorkingSet();
+			builder.controller()->showToast(u"Память успешно оптимизирована!"_q);
+		},
+		.keywords = { u"ram"_q, u"memory"_q, u"clear"_q, u"clean"_q },
+	});
+	builder.addDividerText(rpl::single(u"Мгновенно очищает кэш растровых изображений и возвращает свободную память операционной системе."_q));
 });
 
 CustomMessagesSection::CustomMessagesSection(

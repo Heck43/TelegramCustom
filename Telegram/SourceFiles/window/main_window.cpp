@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "core/sandbox.h"
 #include "core/shortcuts.h"
+#include "custom_features/memory_optimizer.hpp"
 #include "lang/lang_keys.h"
 #include "data/data_session.h"
 #include "data/data_forum_topic.h"
@@ -563,6 +564,7 @@ void MainWindow::handleStateChanged(Qt::WindowState state) {
 	updateControlsGeometry();
 	if (state == Qt::WindowMinimized) {
 		controller().updateIsActiveBlur();
+		CustomFeatures::MemoryOptimizer::OnMinimizedOrHidden();
 	} else {
 		controller().updateIsActiveFocus();
 	}
@@ -950,6 +952,7 @@ bool MainWindow::minimizeToTray() {
 
 	closeWithoutDestroy();
 	controller().updateIsActiveBlur();
+	CustomFeatures::MemoryOptimizer::OnMinimizedOrHidden();
 	updateGlobalMenu();
 	return true;
 }

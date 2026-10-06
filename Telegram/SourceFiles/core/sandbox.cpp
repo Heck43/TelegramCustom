@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/update_checker.h"
 #include "core/deadlock_detector.h"
 #include "base/timer.h"
+#include "custom_features/memory_optimizer.hpp"
 #include "base/concurrent_timer.h"
 #include "base/invoke_queued.h"
 #include "base/options.h"
@@ -266,6 +267,7 @@ void Sandbox::launchApplication() {
 		}, _lifetime);
 
 		_application = std::make_unique<Application>();
+		CustomFeatures::MemoryOptimizer::InitStartupLimits();
 
 		// Ideally this should go to constructor.
 		// But we want to catch all native events and Application installs
