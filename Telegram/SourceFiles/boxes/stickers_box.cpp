@@ -454,7 +454,8 @@ StickersBox::StickersBox(
 StickersBox::StickersBox(
 	QWidget*,
 	std::shared_ptr<ChatHelpers::Show> show,
-	const QVector<MTPStickerSetCovered> &attachedSets)
+	const QVector<MTPStickerSetCovered> &attachedSets,
+	const QString &customTitle)
 : _show(std::move(show))
 , _session(&_show->session())
 , _api(&_session->mtp())
@@ -463,7 +464,25 @@ StickersBox::StickersBox(
 , _isEmoji(false)
 , _attached(0, this, _show, Section::Attached)
 , _attachedType(Data::StickersType::Stickers)
+, _customTitle(customTitle)
 , _attachedSets(attachedSets) {
+}
+
+StickersBox::StickersBox(
+	QWidget*,
+	std::shared_ptr<ChatHelpers::Show> show,
+	const std::vector<uint64> &setIds,
+	const QString &customTitle)
+: _show(std::move(show))
+, _session(&_show->session())
+, _api(&_session->mtp())
+, _section(Section::Attached)
+, _isMasks(false)
+, _isEmoji(false)
+, _attached(0, this, _show, Section::Attached)
+, _attachedType(Data::StickersType::Stickers)
+, _customTitle(customTitle)
+, _rawSetIds(setIds) {
 }
 
 StickersBox::StickersBox(
@@ -502,6 +521,12 @@ void StickersBox::showAttachedStickers() {
 	};
 	for (const auto &set : _attachedSets) {
 		add(stickers->feedSet(set));
+	}
+	for (const auto &setId : _rawSetIds) {
+		const auto i = stickers->sets().find(setId);
+		if (i != end(stickers->sets())) {
+			add(i->second.get());
+		}
 	}
 	for (const auto &setId : _emojiSets) {
 		const auto i = stickers->sets().find(setId.id);
@@ -592,9 +617,13 @@ void StickersBox::prepare() {
 	} else if (_section == Section::Archived) {
 		requestArchivedSets();
 	} else if (_section == Section::Attached) {
-		setTitle(_attachedType == Data::StickersType::Emoji
-			? tr::lng_custom_emoji_used_sets()
-			: tr::lng_stickers_attached_sets());
+		if (!_customTitle.isEmpty()) {
+			setTitle(rpl::single(_customTitle));
+		} else {
+			setTitle(_attachedType == Data::StickersType::Emoji
+				? tr::lng_custom_emoji_used_sets()
+				: tr::lng_stickers_attached_sets());
+		}
 	}
 	if (_tabs) {
 		if (archivedSetsOrder().isEmpty()) {

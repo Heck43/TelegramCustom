@@ -13,7 +13,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/stickers_box.h"
 #include "data/data_document.h"
 #include "data/data_photo.h"
+#include "data/data_session.h"
+#include "data/stickers/data_stickers.h"
 #include "lang/lang_keys.h"
+#include "main/main_session.h"
 #include "window/window_session_controller.h"
 
 namespace Api {
@@ -87,6 +90,69 @@ void AttachedStickers::requestAttachedStickerSets(
 		controller,
 		MTPmessages_GetAttachedStickers(
 			MTP_inputStickeredMediaDocument(document->mtpInput())));
+}
+
+void AttachedStickers::requestSimilarStickerSets(
+		not_null<Window::SessionController*> controller,
+		not_null<DocumentData*> document) {
+	const auto sticker = document->sticker();
+	if (!sticker) {
+		return;
+	}
+
+	QString query = sticker->alt.trimmed();
+	if (query.isEmpty()) {
+		if (const auto emojiList = document->owner().stickers().getEmojiListFromSet(document)) {
+			if (!emojiList->empty()) {
+				query = (*emojiList)[0]->text();
+			}
+		}
+	}
+	if (query.isEmpty()) {
+		query = u"stickers"_q;
+	}
+
+	const auto weak = base::make_weak(controller);
+	_api.request(_requestId).cancel();
+	_requestId = _api.request(MTPmessages_SearchStickerSets(
+		MTP_flags(0),
+		MTP_string(query),
+		MTP_long(0)
+	)).done([=](const MTPmessages_FoundStickerSets &result) {
+		_requestId = 0;
+		const auto strongController = weak.get();
+		if (!strongController) {
+			return;
+		}
+
+		result.match([&](const MTPDmessages_foundStickerSetsNotModified &) {
+			strongController->show(Ui::MakeInformBox(tr::lng_stickers_not_found()));
+		}, [&](const MTPDmessages_foundStickerSets &data) {
+			auto &owner = strongController->session().data();
+			std::vector<uint64> foundSetIds;
+			for (const auto &setData : data.vsets().v) {
+				const auto set = owner.stickers().feedSet(setData);
+				if (!set->stickers.empty() || !set->covers.empty()) {
+					foundSetIds.push_back(set->id);
+				}
+			}
+
+			if (foundSetIds.empty()) {
+				strongController->show(Ui::MakeInformBox(tr::lng_stickers_not_found()));
+			} else {
+				const auto title = QString(u"Похожие стикерпаки (%1)"_q).arg(query);
+				strongController->show(Box<StickersBox>(
+					strongController->uiShow(),
+					foundSetIds,
+					title));
+			}
+		});
+	}).fail([=] {
+		_requestId = 0;
+		if (const auto strongController = weak.get()) {
+			strongController->show(Ui::MakeInformBox(tr::lng_stickers_not_found()));
+		}
+	}).send();
 }
 
 } // namespace Api

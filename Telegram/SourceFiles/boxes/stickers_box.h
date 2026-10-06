@@ -71,7 +71,13 @@ public:
 	StickersBox(
 		QWidget*,
 		std::shared_ptr<ChatHelpers::Show> show,
-		const QVector<MTPStickerSetCovered> &attachedSets);
+		const QVector<MTPStickerSetCovered> &attachedSets,
+		const QString &customTitle = QString());
+	StickersBox(
+		QWidget*,
+		std::shared_ptr<ChatHelpers::Show> show,
+		const std::vector<uint64> &setIds,
+		const QString &customTitle);
 	StickersBox(
 		QWidget*,
 		std::shared_ptr<ChatHelpers::Show> show,
@@ -166,7 +172,9 @@ private:
 	Tab *_tab = nullptr;
 
 	const Data::StickersType _attachedType = {};
+	const QString _customTitle;
 	const QVector<MTPStickerSetCovered> _attachedSets;
+	const std::vector<uint64> _rawSetIds;
 	const std::vector<StickerSetIdentifier> _emojiSets;
 
 	ChannelData *_megagroupSet = nullptr;

@@ -295,6 +295,13 @@ void AddDocumentActions(
 				: tr::lng_context_pack_add(tr::now)),
 			[=] { ShowStickerPackInfo(document, list); },
 			&st::menuIconStickers);
+		menu->addAction(
+			u"Найти похожие стикерпаки"_q,
+			[=] {
+				auto &attached = session->api().attachedStickers();
+				attached.requestSimilarStickerSets(controller, document);
+			},
+			&st::menuIconStickers);
 	}
 	const auto sending = item && item->isSending();
 	if (!sending && document->sticker() && !document->sticker()->set) {

@@ -31,6 +31,10 @@ public:
 		not_null<Window::SessionController*> controller,
 		not_null<DocumentData*> document);
 
+	void requestSimilarStickerSets(
+		not_null<Window::SessionController*> controller,
+		not_null<DocumentData*> document);
+
 private:
 	void request(
 		not_null<Window::SessionController*> controller,
